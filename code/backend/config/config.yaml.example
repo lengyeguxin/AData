@@ -1,0 +1,46 @@
+# AData主配置文件示例
+# 请复制此文件为 config.yaml 并填入您的实际token
+
+# 数据库配置
+database:
+  path: database/adata.db
+  type: duckdb
+
+# Tushare API配置
+tushare:
+  token: YOUR_TUSHARE_TOKEN_HERE  # 请替换为您的Tushare Token
+  api_url: http://api.tushare.pro  # Tushare官方API地址
+  rate_limit: 500  # 每分钟500次（1万积分）
+
+# 数据拉取配置
+fetch:
+  enabled: true                    # 数据拉取开关（默认开启）
+  start_date: "20210101"           # 最早开始时间（全局默认）
+  check_interval: 60               # 检测间隔（分钟）
+
+# 快照配置
+snapshot:
+  enabled: true                    # 快照开关
+  interval: 60                     # 快照间隔（分钟）
+  locations:                       # 快照位置
+    - database/adata_snapshot.db
+    # - /path/to/your/snapshot.db  # 第二个快照位置（可选）
+
+# 调度器配置
+scheduler:
+  daily_update_time: "18:00"       # 日数据更新时间（18点判断）
+  weekly_update_time: "19:00"      # 周数据更新时间
+  monthly_update_time: "20:00"     # 月数据更新时间
+
+# 日志配置
+logging:
+  level: INFO
+  file: logs/adata.log
+  max_size: 10MB
+  backup_count: 5
+
+# 异常检测配置
+anomaly_detection:
+  enable_price_check: true         # 启用价格异常检查
+  enable_suspension_check: true    # 启用停牌检查
+  max_change_pct: 20               # 最大涨跌幅（%）
