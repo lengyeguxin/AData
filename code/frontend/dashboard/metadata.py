@@ -26,13 +26,19 @@ class DatabaseMetadata:
         初始化元数据查询器
 
         Args:
-            db_path: 数据库文件路径，默认使用项目根目录下的data/adata.db
+            db_path: 数据库文件路径，默认使用项目根目录下的database/adata.db
             use_snapshot: 是否使用快照副本进行读取（读写分离）
         """
         if db_path is None:
             # 使用绝对路径，避免工作目录问题
             project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
             db_path = str(project_root / 'database' / 'adata.db')
+        else:
+            # 将相对路径转换为绝对路径（基于项目根目录）
+            project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
+            db_path_obj = Path(db_path)
+            if not db_path_obj.is_absolute():
+                db_path = str(project_root / db_path)
 
         # 如果启用快照模式，优先使用快照副本
         if use_snapshot:
