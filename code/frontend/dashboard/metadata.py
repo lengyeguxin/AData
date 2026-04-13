@@ -111,12 +111,18 @@ class DatabaseMetadata:
         查询策略：按优先级尝试多个日期字段
         优先级：trade_date > ann_date > end_date > cal_date > list_date > reg_date > in_date > out_date > updated_at
 
+        特殊处理：trade_calendar表的cal_date可能包含未来日期（交易日历提前设置），不用于显示最新数据时间
+
         Args:
             table_name: 表名
 
         Returns:
             最新日期字符串（YYYY-MM-DD格式），如果查询失败返回None
         """
+        # trade_calendar表特殊处理：不查询最新日期（因为包含未来日期）
+        if table_name == 'trade_calendar':
+            return None
+
         # 日期字段候选列表（按优先级排序）
         date_field_candidates = [
             'trade_date',    # 行情表（stock_daily、index_daily、etf_daily等）

@@ -151,6 +151,14 @@ class ConfigManager:
         """获取调度配置"""
         return self.get_section('scheduler')
 
+    def get_fetch_config(self) -> Dict[str, Any]:
+        """获取数据拉取配置"""
+        return self.get_section('fetch')
+
+    def get_snapshot_config(self) -> Dict[str, Any]:
+        """获取快照配置"""
+        return self.get_section('snapshot')
+
     def get_dashboard_database_config(self) -> Dict[str, Any]:
         """
         获取Dashboard数据库配置（读写分离）
