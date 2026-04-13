@@ -69,9 +69,21 @@ class ConfigManager:
                 'path': 'database/adata.db',
                 'type': 'duckdb'
             },
+            'fetch': {
+                'enabled': True,
+                'start_date': '20210101',
+                'check_interval': 60
+            },
+            'snapshot': {
+                'enabled': True,
+                'interval': 60,
+                'locations': [
+                    'database/adata_snapshot.db',
+                    '/home/my/claude-project/AiStock/database/adata_snapshot.db'
+                ]
+            },
             'history_import': {
                 'start_date': '20210101',
-                'end_date': '20260105',
                 'batch_size': 100,
                 'concurrent_workers': 10
             },
