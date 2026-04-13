@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS etf_index (
     invest_type VARCHAR(20),          -- 投资类型
 
     -- 更新时间
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
 
 CREATE INDEX IF NOT EXISTS idx_etf_index_code ON etf_index(ts_code);
