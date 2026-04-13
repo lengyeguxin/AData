@@ -217,7 +217,7 @@ class DatabaseMetadata:
 
     def _get_table_comments_from_schema(self, table_name: str) -> Dict[str, str]:
         """
-        从schema.py提取表字段注释
+        从SQL schema文件提取表字段注释
 
         Args:
             table_name: 表名
@@ -226,23 +226,34 @@ class DatabaseMetadata:
             字段注释字典 {column_name: comment}
         """
         try:
-            # 导入schema定义
-            from src.storage import schema as schema_module
+            # 确定schema文件路径
+            project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
 
-            # 构建CREATE语句变量名
-            create_var_name = f'CREATE_{table_name.upper()}'
+            # 尝试多个schema文件
+            schema_files = [
+                project_root / 'database' / 'schemas' / 'p0_schema.sql',
+                project_root / 'database' / 'schemas' / 'p1_schema.sql',
+                project_root / 'database' / 'schemas' / 'p2_schema.sql',
+                project_root / 'database' / 'schemas' / 'p2_fina_indicator_full.sql',
+                project_root / 'database' / 'schemas' / 'global_cursor_schema.sql'
+            ]
 
-            # 对于滚动表，使用模板
-            if table_name.startswith('cyq_performance_'):
-                create_var_name = 'CREATE_CYQ_PERFORMANCE_TEMPLATE'
-            elif table_name.startswith('margin_detail_'):
-                create_var_name = 'CREATE_MARGIN_DETAIL_TEMPLATE'
+            # 遍历所有schema文件查找CREATE TABLE语句
+            for schema_file in schema_files:
+                if not schema_file.exists():
+                    continue
 
-            # 获取CREATE语句
-            create_statement = getattr(schema_module, create_var_name, None)
+                with open(schema_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
 
-            if create_statement:
-                return extract_column_comments(create_statement)
+                # 查找CREATE TABLE语句
+                import re
+                pattern = rf'CREATE TABLE IF NOT EXISTS {table_name}\s*\((.*?)\);'
+                match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+
+                if match:
+                    create_statement = f"CREATE TABLE IF NOT EXISTS {table_name} ({match.group(1)});"
+                    return extract_column_comments(create_statement)
 
         except Exception:
             pass
