@@ -178,7 +178,6 @@ def render_table_list(metadata: DatabaseMetadata):
                     schema_data.append({
                         '字段名': col['column_name'],
                         '类型': col['data_type'],
-                        '可空': '✓' if col['is_nullable'] else '✗',
                         '说明': col.get('comment', '-')
                     })
 
@@ -215,10 +214,10 @@ def render_table_list(metadata: DatabaseMetadata):
                         md_content += f"**描述**: {table['description']}\n\n"
                     md_content += f"**更新频率**: {table['update_frequency']}\n\n"
                     md_content += "## 字段列表\n\n"
-                    md_content += "| 字段名 | 类型 | 可空 | 说明 |\n"
-                    md_content += "|--------|------|------|------|\n"
+                    md_content += "| 字段名 | 类型 | 说明 |\n"
+                    md_content += "|--------|------|------|\n"
                     for col in schema:
-                        md_content += f"| {col['column_name']} | {col['data_type']} | {'✓' if col['is_nullable'] else '✗'} | {col.get('comment', '-')} |\n"
+                        md_content += f"| {col['column_name']} | {col['data_type']} | {col.get('comment', '-')} |\n"
 
                     st.download_button(
                         label="📄 导出Markdown",
