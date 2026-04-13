@@ -151,7 +151,7 @@ def render_fetch_control(config_manager: ConfigManager):
 
             with col1:
                 st.markdown(f"**表名：** {cursor['table_name']}")
-                st.markdown(f"**游标类型：** {cursor['cursor_type']}")
+                st.markdown(f"**游标策略：** {cursor['cursor_strategy']}")
                 st.markdown(f"**游标值：** {cursor['cursor_value']}")
                 st.markdown(f"**状态：** {cursor['status']}")
 
