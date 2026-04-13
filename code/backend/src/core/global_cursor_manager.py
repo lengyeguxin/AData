@@ -48,6 +48,50 @@ class GlobalCursorManager:
 
         # 加载配置
         self.config = self._load_config()
+
+    def initialize(self):
+        """
+        初始化游标表（创建global_cursor表和索引）
+
+        Returns:
+            bool: 是否初始化成功
+        """
+        try:
+            # 读取schema SQL文件
+            schema_file = self.config_path.parent.parent.parent / 'database' / 'schemas' / 'global_cursor_schema.sql'
+            if not schema_file.exists():
+                self.logger.warning(f"global_cursor_schema.sql不存在，使用默认SQL创建")
+                # 使用默认SQL创建表
+                create_sql = """
+                    CREATE TABLE IF NOT EXISTS global_cursor (
+                        table_name VARCHAR(50) PRIMARY KEY,
+                        cursor_strategy VARCHAR(20) NOT NULL,
+                        cursor_value VARCHAR(20),
+                        dependencies TEXT,
+                        fetch_after_time VARCHAR(10),
+                        last_fetch_time TIMESTAMP,
+                        last_record_count INTEGER DEFAULT 0,
+                        status VARCHAR(10) DEFAULT 'pending',
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_cursor_strategy ON global_cursor(cursor_strategy);
+                """
+                with duckdb.connect(self.db_path) as conn:
+                    conn.execute(create_sql)
+            else:
+                # 从schema文件读取并执行
+                with open(schema_file, 'r', encoding='utf-8') as f:
+                    schema_sql = f.read()
+                with duckdb.connect(self.db_path) as conn:
+                    conn.execute(schema_sql)
+
+            self.logger.info(f"游标表初始化成功: {self.db_path}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"游标表初始化失败: {e}")
+            return False
         self.table_config = self._load_table_config()
 
     def _load_config(self) -> Dict:
