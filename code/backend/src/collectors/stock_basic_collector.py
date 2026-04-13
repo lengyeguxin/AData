@@ -65,6 +65,8 @@ class StockBasicCollector(BaseCollector):
 
         Returns:
             INSERT SQL语句
+
+        注意：DuckDB不允许在ON CONFLICT DO UPDATE SET中更新market字段
         """
         return """
             INSERT INTO stock_basic (
@@ -74,7 +76,6 @@ class StockBasicCollector(BaseCollector):
             DO UPDATE SET
                 name = excluded.name,
                 industry = excluded.industry,
-                market = excluded.market,
                 list_date = excluded.list_date,
                 delist_date = excluded.delist_date,
                 is_hs = excluded.is_hs,

@@ -66,18 +66,20 @@ class ETFDailyCollector(BaseCollector):
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（字段顺序：ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount）
         """
         return (
             item.get('ts_code'),        # ts_code
             convert_date_format(item.get('trade_date')),  # trade_date
+            item.get('pre_close'),      # pre_close（新增）
             item.get('open'),           # open
             item.get('high'),           # high
             item.get('low'),            # low
             item.get('close'),          # close
+            item.get('change'),         # change（新增）
+            item.get('pct_chg'),        # pct_chg
             item.get('vol'),            # vol
             item.get('amount'),         # amount
-            item.get('pct_chg'),        # pct_chg
         )
 
     def _build_insert_query(self) -> str:
@@ -89,17 +91,19 @@ class ETFDailyCollector(BaseCollector):
         """
         return """
             INSERT INTO etf_daily (
-                ts_code, trade_date, open, high, low, close, vol, amount, pct_chg, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON CONFLICT (ts_code, trade_date)
             DO UPDATE SET
+                pre_close = excluded.pre_close,
                 open = excluded.open,
                 high = excluded.high,
                 low = excluded.low,
                 close = excluded.close,
+                change = excluded.change,
+                pct_chg = excluded.pct_chg,
                 vol = excluded.vol,
                 amount = excluded.amount,
-                pct_chg = excluded.pct_chg,
                 updated_at = NOW()
         """
 

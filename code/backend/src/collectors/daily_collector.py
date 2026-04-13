@@ -69,18 +69,20 @@ class DailyCollector(BaseCollector):
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（字段顺序：ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount, adj_factor, open_adj, high_adj, low_adj, close_adj, is_suspended, is_abnormal）
         """
         return (
             item.get('ts_code'),        # ts_code
             convert_date_format(item.get('trade_date')),  # trade_date
+            item.get('pre_close'),      # pre_close（昨收价）
             item.get('open'),           # open
             item.get('high'),           # high
             item.get('low'),            # low
             item.get('close'),          # close
+            item.get('change'),         # change（涨跌额）
+            item.get('pct_chg'),        # pct_chg
             item.get('vol'),            # vol
             item.get('amount'),         # amount
-            item.get('pct_chg'),        # pct_chg
             None,                       # adj_factor（后续由复权因子填充）
             None,                       # open_adj（后续计算）
             None,                       # high_adj（后续计算）
@@ -99,19 +101,21 @@ class DailyCollector(BaseCollector):
         """
         return """
             INSERT INTO stock_daily (
-                ts_code, trade_date, open, high, low, close, vol, amount, pct_chg,
+                ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount,
                 adj_factor, open_adj, high_adj, low_adj, close_adj,
                 is_suspended, is_abnormal, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON CONFLICT (ts_code, trade_date)
             DO UPDATE SET
+                pre_close = excluded.pre_close,
                 open = excluded.open,
                 high = excluded.high,
                 low = excluded.low,
                 close = excluded.close,
+                change = excluded.change,
+                pct_chg = excluded.pct_chg,
                 vol = excluded.vol,
                 amount = excluded.amount,
-                pct_chg = excluded.pct_chg,
                 adj_factor = excluded.adj_factor,
                 open_adj = excluded.open_adj,
                 high_adj = excluded.high_adj,

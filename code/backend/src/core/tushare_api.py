@@ -86,7 +86,7 @@ class TushareAPI:
                 self.api_url,
                 data=json.dumps(params),
                 headers={'Content-Type': 'application/json'},
-                timeout=30
+                timeout=60  # VIP接口需要更长超时时间
             )
 
             response_data = response.json()
@@ -97,15 +97,40 @@ class TushareAPI:
                 self.logger.error(f"API调用失败: {api_name} - {error_msg}")
                 raise Exception(f"Tushare API错误: {error_msg}")
 
-            # 获取数据
-            data = response_data.get('data', [])
+            # 获取数据（新格式：data包含fields和items）
+            data_dict = response_data.get('data', {})
 
-            if not data:
+            if not data_dict:
                 self.logger.warning(f"API返回空数据: {api_name}")
                 return []
 
-            self.logger.info(f"API返回数据: {len(data)}条记录")
-            return data
+            # 解析数据格式
+            # API返回格式：
+            # {
+            #   "data": {
+            #     "fields": ["ts_code", "name", ...],
+            #     "items": [["000001.SZ", "平安银行", ...], ...]
+            #   }
+            # }
+
+            fields = data_dict.get('fields', [])
+            items = data_dict.get('items', [])
+
+            if not fields or not items:
+                # 兼容旧格式（直接返回列表）
+                self.logger.warning(f"API返回格式异常: {api_name}")
+                return []
+
+            # 将二维数组转换为字典列表
+            result = []
+            for item in items:
+                row_dict = {}
+                for i, field in enumerate(fields):
+                    row_dict[field] = item[i] if i < len(item) else None
+                result.append(row_dict)
+
+            self.logger.info(f"API返回数据: {len(result)}条记录")
+            return result
 
         except requests.Timeout:
             self.logger.error(f"API请求超时: {api_name}")

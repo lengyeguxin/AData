@@ -8,10 +8,12 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Optional
 
-# 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# 添加项目路径到Python路径
+project_root = Path(__file__).parent.parent.parent
+backend_path = project_root / 'backend'
+sys.path.insert(0, str(backend_path))
 
-from src.storage.database import Database
+from src.core.database import Database
 from dashboard.utils.table_info import get_table_info
 from dashboard.utils.formatters import extract_column_comments
 

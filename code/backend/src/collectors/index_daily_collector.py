@@ -48,15 +48,48 @@ class IndexDailyCollector(BaseCollector):
         Returns:
             指数日线数据列表
 
+        注意：
+            index_daily接口需要ts_code参数（必填），不能只传trade_date。
+            需要遍历所有指数代码，按指数拉取数据。
+
         示例：
             collect_by_date('20260409') → 拉取2026-04-09所有指数日线数据
         """
         self.logger.info(f"拉取指数日线数据: trade_date={trade_date}")
 
-        # 严格按照CSV文档参数
-        data = self.collect(trade_date=trade_date)
+        # 从index_basic表获取所有指数代码
+        import duckdb
+        db = duckdb.connect(self.db_path, read_only=True)
 
-        return data
+        index_codes = db.execute("""
+            SELECT ts_code FROM index_basic ORDER BY ts_code
+        """).fetchall()
+
+        db.close()
+
+        all_data = []
+
+        # 遍历所有指数代码
+        for i, (ts_code,) in enumerate(index_codes):
+            self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}")
+
+            try:
+                # 严格按照CSV文档参数：ts_code + trade_date
+                data = self.collect(ts_code=ts_code, trade_date=trade_date)
+
+                if data:
+                    all_data.extend(data)
+                    self.logger.debug(f"指数{ts_code}返回{len(data)}条数据")
+                else:
+                    self.logger.warning(f"指数{ts_code}返回空数据")
+
+            except Exception as e:
+                self.logger.error(f"拉取指数{ts_code}失败: {e}")
+                # 继续拉取其他指数
+                continue
+
+        self.logger.info(f"拉取完成: 共{len(all_data)}条指数数据")
+        return all_data
 
     def _extract_values(self, item: Dict) -> tuple:
         """
@@ -66,18 +99,20 @@ class IndexDailyCollector(BaseCollector):
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（字段顺序：ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount）
         """
         return (
             item.get('ts_code'),        # ts_code
             convert_date_format(item.get('trade_date')),  # trade_date
+            item.get('pre_close'),      # pre_close（新增）
             item.get('open'),           # open
             item.get('high'),           # high
             item.get('low'),            # low
             item.get('close'),          # close
+            item.get('change'),         # change（新增）
+            item.get('pct_chg'),        # pct_chg
             item.get('vol'),            # vol
             item.get('amount'),         # amount
-            item.get('pct_chg'),        # pct_chg
         )
 
     def _build_insert_query(self) -> str:
@@ -89,17 +124,19 @@ class IndexDailyCollector(BaseCollector):
         """
         return """
             INSERT INTO index_daily (
-                ts_code, trade_date, open, high, low, close, vol, amount, pct_chg, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON CONFLICT (ts_code, trade_date)
             DO UPDATE SET
+                pre_close = excluded.pre_close,
                 open = excluded.open,
                 high = excluded.high,
                 low = excluded.low,
                 close = excluded.close,
+                change = excluded.change,
+                pct_chg = excluded.pct_chg,
                 vol = excluded.vol,
                 amount = excluded.amount,
-                pct_chg = excluded.pct_chg,
                 updated_at = NOW()
         """
 

@@ -74,18 +74,30 @@ class WeeklyCollector(BaseCollector):
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（字段顺序：ts_code, trade_date, end_date, freq, pre_close, open, high, low, close, change, pct_chg, vol, amount, open_qfq, high_qfq, low_qfq, close_qfq, open_hfq, high_hfq, low_hfq, close_hfq）
         """
         return (
             item.get('ts_code'),        # ts_code
             convert_date_format(item.get('trade_date')),  # trade_date
+            convert_date_format(item.get('end_date')),    # end_date（计算截至日期）
+            item.get('freq'),           # freq（频率：week）
+            item.get('pre_close'),      # pre_close（上一周期收盘价）
             item.get('open'),           # open
             item.get('high'),           # high
             item.get('low'),            # low
             item.get('close'),          # close
+            item.get('change'),         # change（涨跌额）
+            item.get('pct_chg'),        # pct_chg
             item.get('vol'),            # vol
             item.get('amount'),         # amount
-            item.get('pct_chg'),        # pct_chg
+            item.get('open_qfq'),       # open_qfq（前复权开盘价）
+            item.get('high_qfq'),       # high_qfq（前复权最高价）
+            item.get('low_qfq'),        # low_qfq（前复权最低价）
+            item.get('close_qfq'),      # close_qfq（前复权收盘价）
+            item.get('open_hfq'),       # open_hfq（后复权开盘价）
+            item.get('high_hfq'),       # high_hfq（后复权最高价）
+            item.get('low_hfq'),        # low_hfq（后复权最低价）
+            item.get('close_hfq'),      # close_hfq（后复权收盘价）
         )
 
     def _build_insert_query(self) -> str:
@@ -97,17 +109,33 @@ class WeeklyCollector(BaseCollector):
         """
         return """
             INSERT INTO stock_weekly (
-                ts_code, trade_date, open, high, low, close, vol, amount, pct_chg, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ts_code, trade_date, end_date, freq, pre_close, open, high, low, close,
+                change, pct_chg, vol, amount,
+                open_qfq, high_qfq, low_qfq, close_qfq,
+                open_hfq, high_hfq, low_hfq, close_hfq,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON CONFLICT (ts_code, trade_date)
             DO UPDATE SET
+                end_date = excluded.end_date,
+                freq = excluded.freq,
+                pre_close = excluded.pre_close,
                 open = excluded.open,
                 high = excluded.high,
                 low = excluded.low,
                 close = excluded.close,
+                change = excluded.change,
+                pct_chg = excluded.pct_chg,
                 vol = excluded.vol,
                 amount = excluded.amount,
-                pct_chg = excluded.pct_chg,
+                open_qfq = excluded.open_qfq,
+                high_qfq = excluded.high_qfq,
+                low_qfq = excluded.low_qfq,
+                close_qfq = excluded.close_qfq,
+                open_hfq = excluded.open_hfq,
+                high_hfq = excluded.high_hfq,
+                low_hfq = excluded.low_hfq,
+                close_hfq = excluded.close_hfq,
                 updated_at = NOW()
         """
 

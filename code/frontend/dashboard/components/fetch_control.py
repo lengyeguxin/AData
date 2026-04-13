@@ -6,13 +6,27 @@
 
 import streamlit as st
 import sys
-sys.path.append('code/backend')
+from pathlib import Path
+
+# 添加backend到路径
+project_root = Path(__file__).parent.parent.parent.parent
+backend_path = project_root / 'backend'
+sys.path.insert(0, str(backend_path))
+
 from dashboard.config_manager import ConfigManager
+from src.core.global_cursor_manager import GlobalCursorManager
+from src.core.database import Database
+import duckdb
 
 
 def render_fetch_control(config_manager: ConfigManager):
     """渲染数据拉取控制页面"""
     st.header("🔄 数据拉取控制")
+
+    # 初始化游标管理器（使用绝对路径）
+    db_path = str(project_root / 'database' / 'adata.db')
+    config_path = str(backend_path / 'config')
+    cursor_manager = GlobalCursorManager(db_path, config_path)
 
     # ========== 第一部分：控制面板 ==========
     st.subheader("控制面板")
@@ -47,9 +61,14 @@ def render_fetch_control(config_manager: ConfigManager):
         if st.button("🔄 重置所有游标", type="secondary", use_container_width=True):
             if st.session_state.get('confirm_reset'):
                 # 执行重置
-                # 注意：实际执行需要GlobalCursorManager类，这里暂时显示提示
-                st.warning("⚠️ 游标重置功能需要GlobalCursorManager支持，将在后端实现后启用")
-                st.session_state.confirm_reset = False
+                try:
+                    with Database(db_path) as db:
+                        db.execute("UPDATE global_cursor SET cursor_value=NULL, status='pending', last_fetch_time=NULL, last_record_count=0")
+                    st.success("✅ 所有游标已重置")
+                    st.session_state.confirm_reset = False
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 重置失败: {e}")
             else:
                 st.session_state.confirm_reset = True
                 st.warning("⚠️ 再次点击确认重置")
@@ -59,43 +78,58 @@ def render_fetch_control(config_manager: ConfigManager):
     # ========== 第二部分：游标状态 ==========
     st.subheader("游标状态")
 
-    # 显示提示信息
-    st.info("""
-    **游标状态监控功能需要后端支持**
+    # 获取所有游标
+    try:
+        cursors = cursor_manager.get_all_cursors()
 
-    游标状态页面将在GlobalCursorManager实现后显示：
-    - 每张表的游标值（最后完成的日期）
-    - 拉取状态（pending/running/success/failed）
-    - 最后拉取时间和记录数
-    - 按游标类型分组（daily/monthly/yearly/once）
+        # 按游标类型分组
+        cursors_by_type = {}
+        for cursor in cursors:
+            cursor_type = cursor['cursor_type']
+            if cursor_type not in cursors_by_type:
+                cursors_by_type[cursor_type] = []
+            cursors_by_type[cursor_type].append(cursor)
 
-    后端开发完成后，此页面将自动启用。
-    """)
+        # 显示每组游标
+        for cursor_type, type_name in [
+            ('daily', '按天更新'),
+            ('monthly', '按月更新'),
+            ('yearly', '按年更新'),
+            ('once', '一次性更新')
+        ]:
+            if cursor_type in cursors_by_type:
+                with st.expander(f"{type_name} ({len(cursors_by_type[cursor_type])}张表)", expanded=True):
+                    # 显示表格
+                    display_data = []
+                    for cursor in cursors_by_type[cursor_type]:
+                        status_emoji = {
+                            'pending': '⏳',
+                            'running': '🔄',
+                            'success': '✅',
+                            'failed': '❌'
+                        }.get(cursor['status'], '❓')
 
-    # 占位符：显示游标类型说明
-    with st.expander("游标策略说明", expanded=True):
-        st.markdown("""
-        **游标类型分类：**
+                        display_data.append({
+                            '表名': cursor['table_name'],
+                            '游标值': cursor['cursor_value'] or '未初始化',
+                            '状态': f"{status_emoji} {cursor['status']}",
+                            '最后拉取时间': cursor['last_fetch_time'] or '从未拉取',
+                            '记录数': cursor['last_record_count']
+                        })
 
-        1. **无游标（none）**
-           - 全量拉取，不记录进度
-           - 适用表：stock_basic、index_basic、etf_basic、etf_index、hots_user、ths_index_basic
+                    st.dataframe(display_data, use_container_width=True)
 
-        2. **按天记录（daily_trade）**
-           - 每交易日拉取，游标记录最后完成日期
-           - 适用表：stock_daily、stock_daily_basic、stock_weekly、stock_monthly、index_daily、etf_daily、etf_adj_factor、hots_trader_detail、ths_moneyflow、ths_concept_moneyflow、ths_industry_moneyflow、ths_index_daily
+    except Exception as e:
+        st.error(f"❌ 游标状态读取失败: {e}")
+        st.info("""
+        **游标状态读取失败**
 
-        3. **按天记录（daily_natural）**
-           - 每自然日拉取，不受交易日历限制
-           - 适用表：fina_indicator、income、balancesheet、cashflow、express、express_brief、dividend
+        可能原因：
+        - 数据库未初始化（请运行 scripts/setup_database.py）
+        - global_cursor表不存在
+        - 数据库路径配置错误
 
-        4. **按年记录（yearly）**
-           - 每年拉取一次，游标记录年份
-           - 适用表：trade_calendar
-
-        5. **特殊游标（special_ths_member）**
-           - 遍历指数列表，游标记录当前指数代码
-           - 适用表：ths_concept_member
+        请检查数据库状态后再重试。
         """)
 
     st.markdown("---")
@@ -103,50 +137,48 @@ def render_fetch_control(config_manager: ConfigManager):
     # ========== 第三部分：单表控制 ==========
     st.subheader("单表控制")
 
-    # 显示提示信息
-    st.info("""
-    **单表控制功能需要后端支持**
+    # 选择表
+    try:
+        cursors = cursor_manager.get_all_cursors()
+        table_names = [cursor['table_name'] for cursor in cursors]
+        selected_table = st.selectbox("选择表", table_names)
 
-    单表控制功能将在GlobalCursorManager实现后启用：
-    - 查看单张表的游标详情
-    - 重置单个表的游标
-    - 手动触发单表拉取
+        if selected_table:
+            cursor = cursor_manager.get_cursor(selected_table)
 
-    后端开发完成后，此功能将自动启用。
-    """)
+            col1, col2 = st.columns(2)
 
-    # 显示表列表（静态展示）
-    from dashboard.utils.table_info import TABLE_INFO
+            with col1:
+                st.markdown(f"**表名：** {cursor['table_name']}")
+                st.markdown(f"**游标类型：** {cursor['cursor_type']}")
+                st.markdown(f"**游标值：** {cursor['cursor_value']}")
+                st.markdown(f"**状态：** {cursor['status']}")
 
-    with st.expander("数据表列表", expanded=False):
-        st.markdown(f"**共 {len(TABLE_INFO)} 张数据表**")
+            with col2:
+                st.markdown(f"**前置依赖：** {', '.join(cursor['dependencies']) or '无'}")
+                st.markdown(f"**截至时间：** {cursor['fetch_after_time']}")
+                st.markdown(f"**最后拉取：** {cursor['last_fetch_time'] or '从未拉取'}")
+                st.markdown(f"**记录数：** {cursor['last_record_count']}")
 
-        # 按优先级分组显示
-        categories = {
-            'P0': '核心数据（前置表）',
-            'P1行情': '行情数据',
-            'P2财务': '财务数据',
-            'P3资金流向(THS)': '资金流向',
-            'P3概念板块': '概念板块',
-            'P4游资': '游资数据'
-        }
+            # 单表操作按钮
+            col1, col2 = st.columns(2)
 
-        tables_by_category = {}
-        for table_name, info in TABLE_INFO.items():
-            cat = info['category']
-            if cat not in tables_by_category:
-                tables_by_category[cat] = []
-            tables_by_category[cat].append({
-                'table_name': table_name,
-                'chinese_name': info['chinese_name']
-            })
+            with col1:
+                if st.button(f"🔄 重置 {selected_table} 游标"):
+                    try:
+                        with Database(db_path) as db:
+                            db.execute(
+                                "UPDATE global_cursor SET cursor_value=NULL, status='pending', last_fetch_time=NULL, last_record_count=0 WHERE table_name=?",
+                                (selected_table,)
+                            )
+                        st.success(f"✅ {selected_table} 游标已重置")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ 重置失败: {e}")
 
-        for category, category_desc in categories.items():
-            if category in tables_by_category:
-                st.markdown(f"**{category} - {category_desc}**")
+            with col2:
+                if st.button(f"▶️ 立即拉取 {selected_table}"):
+                    st.info("请在后端控制台手动触发拉取，或等待定时调度")
 
-                tables = tables_by_category[category]
-                for table in tables:
-                    st.markdown(f"- {table['chinese_name']} ({table['table_name']})")
-
-                st.markdown("")
+    except Exception as e:
+        st.error(f"❌ 单表控制加载失败: {e}")

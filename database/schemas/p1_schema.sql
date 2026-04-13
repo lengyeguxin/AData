@@ -7,13 +7,15 @@ CREATE TABLE IF NOT EXISTS stock_daily (
     trade_date DATE,
 
     -- 未复权数据
+    pre_close REAL,           -- 昨收价（除权价）
     open REAL,
     high REAL,
     low REAL,
     close REAL,
-    vol REAL,
-    amount REAL,
-    pct_chg REAL,
+    change REAL,              -- 涨跌额
+    pct_chg REAL,             -- 涨跌幅（%）
+    vol REAL,                 -- 成交量（手）
+    amount REAL,              -- 成交额（千元）
 
     -- 复权因子
     adj_factor REAL,
@@ -42,6 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_date_code ON stock_daily(trade_date, ts_cod
 CREATE TABLE IF NOT EXISTS stock_daily_basic (
     ts_code VARCHAR(10),
     trade_date DATE,
+    close REAL,               -- 当日收盘价
 
     -- 估值指标
     pe REAL,
@@ -49,15 +52,22 @@ CREATE TABLE IF NOT EXISTS stock_daily_basic (
     pb REAL,
     ps REAL,
     ps_ttm REAL,
-    dv_ratio REAL,
+    dv_ratio REAL,            -- 股息率（%）
+    dv_ttm REAL,              -- 股息率TTM（%）
 
     -- 市值指标
     total_mv REAL,
     circ_mv REAL,
 
+    -- 股本指标（万股）
+    total_share REAL,         -- 总股本
+    float_share REAL,         -- 流通股本
+    free_share REAL,          -- 自由流通股本
+
     -- 交易指标
-    turnover_rate REAL,
-    volume_ratio REAL,
+    turnover_rate REAL,       -- 换手率（%）
+    turnover_rate_f REAL,     -- 换手率（自由流通股）
+    volume_ratio REAL,        -- 量比
 
     -- 更新时间
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -73,23 +83,31 @@ CREATE INDEX IF NOT EXISTS idx_basic_date_code ON stock_daily_basic(trade_date, 
 CREATE TABLE IF NOT EXISTS stock_weekly (
     ts_code VARCHAR(10),
     trade_date DATE,
+    end_date DATE,            -- 计算截至日期
+    freq VARCHAR(10),         -- 频率（week）
 
     -- 未复权数据
+    pre_close REAL,           -- 上一周期收盘价
     open REAL,
     high REAL,
     low REAL,
     close REAL,
+    change REAL,              -- 涨跌额
+    pct_chg REAL,             -- 涨跌幅（%）
     vol REAL,
     amount REAL,
 
-    -- 复权因子
-    adj_factor REAL,
-
     -- 前复权数据
-    open_adj REAL,
-    high_adj REAL,
-    low_adj REAL,
-    close_adj REAL,
+    open_qfq REAL,
+    high_qfq REAL,
+    low_qfq REAL,
+    close_qfq REAL,
+
+    -- 后复权数据
+    open_hfq REAL,
+    high_hfq REAL,
+    low_hfq REAL,
+    close_hfq REAL,
 
     -- 更新时间
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -105,23 +123,31 @@ CREATE INDEX IF NOT EXISTS idx_weekly_date_code ON stock_weekly(trade_date, ts_c
 CREATE TABLE IF NOT EXISTS stock_monthly (
     ts_code VARCHAR(10),
     trade_date DATE,
+    end_date DATE,            -- 计算截至日期
+    freq VARCHAR(10),         -- 频率（month）
 
     -- 未复权数据
+    pre_close REAL,           -- 上一周期收盘价
     open REAL,
     high REAL,
     low REAL,
     close REAL,
+    change REAL,              -- 涨跌额
+    pct_chg REAL,             -- 涨跌幅（%）
     vol REAL,
     amount REAL,
 
-    -- 复权因子
-    adj_factor REAL,
-
     -- 前复权数据
-    open_adj REAL,
-    high_adj REAL,
-    low_adj REAL,
-    close_adj REAL,
+    open_qfq REAL,
+    high_qfq REAL,
+    low_qfq REAL,
+    close_qfq REAL,
+
+    -- 后复权数据
+    open_hfq REAL,
+    high_hfq REAL,
+    low_hfq REAL,
+    close_hfq REAL,
 
     -- 更新时间
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -137,13 +163,15 @@ CREATE INDEX IF NOT EXISTS idx_monthly_date_code ON stock_monthly(trade_date, ts
 CREATE TABLE IF NOT EXISTS index_daily (
     ts_code VARCHAR(10),
     trade_date DATE,
+    pre_close REAL,           -- 昨日收盘点
     open REAL,
     high REAL,
     low REAL,
     close REAL,
+    change REAL,              -- 涨跌点
+    pct_chg REAL,             -- 涨跌幅（%）
     vol REAL,
     amount REAL,
-    pct_chg REAL,
 
     -- 更新时间
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -159,13 +187,15 @@ CREATE INDEX IF NOT EXISTS idx_index_daily_date_code ON index_daily(trade_date, 
 CREATE TABLE IF NOT EXISTS etf_daily (
     ts_code VARCHAR(10),
     trade_date DATE,
+    pre_close REAL,           -- 昨日收盘价
     open REAL,
     high REAL,
     low REAL,
     close REAL,
+    change REAL,              -- 涨跌额
+    pct_chg REAL,             -- 涨跌幅（%）
     vol REAL,
     amount REAL,
-    pct_chg REAL,
 
     -- 更新时间
     updated_at TIMESTAMP DEFAULT NOW(),

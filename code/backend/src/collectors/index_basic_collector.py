@@ -92,6 +92,8 @@ class IndexBasicCollector(BaseCollector):
 
         Returns:
             INSERT SQL语句
+
+        注意：DuckDB不允许在ON CONFLICT DO UPDATE SET中更新market字段
         """
         return """
             INSERT INTO index_basic (
@@ -102,7 +104,6 @@ class IndexBasicCollector(BaseCollector):
             DO UPDATE SET
                 name = excluded.name,
                 fullname = excluded.fullname,
-                market = excluded.market,
                 publisher = excluded.publisher,
                 index_type = excluded.index_type,
                 category = excluded.category,

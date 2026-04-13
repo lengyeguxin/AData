@@ -24,13 +24,14 @@ print(f"测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print()
 
 # 加载配置
-config_file = Path(__file__).parent.parent / 'config' / 'config.yaml'
+project_root = Path(__file__).parent.parent.parent.parent
+config_file = project_root / 'code' / 'backend' / 'config' / 'config.yaml'
 with open(config_file, 'r', encoding='utf-8') as f:
     config = yaml.safe_load(f)
 
-db_path = 'database/adata.db'
+db_path = str(project_root / 'database' / 'adata.db')
 api = TushareAPI(config['tushare'])
-cursor_manager = GlobalCursorManager(db_path, 'code/backend/config')
+cursor_manager = GlobalCursorManager(db_path, str(project_root / 'code' / 'backend' / 'config'))
 
 test_results = []
 
@@ -179,7 +180,7 @@ else:
     print("=" * 80)
 
 # 生成测试报告到tmp目录
-report_path = 'tmp/api_test_report.txt'
+report_path = str(project_root / 'tmp' / 'api_test_report.txt')
 with open(report_path, 'w', encoding='utf-8') as f:
     f.write("=" * 80 + "\n")
     f.write("真实API调用测试报告\n")
