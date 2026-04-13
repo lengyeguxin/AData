@@ -86,7 +86,7 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### 数据库信息")
 
 # 获取配置管理器（用于获取正确的快照路径）
-config_manager_temp = ConfigManager("config/config.yaml")
+config_manager_temp = ConfigManager("../config/config.yaml")
 dashboard_db_config = config_manager_temp.get_dashboard_database_config()
 
 # 获取元数据查询器（提前获取，用于显示信息）
@@ -127,7 +127,7 @@ def get_metadata():
 @st.cache_resource
 def get_config_manager():
     """缓存配置管理器"""
-    return ConfigManager("config/config.yaml")
+    return ConfigManager("../config/config.yaml")
 
 # 获取元数据查询器和配置管理器
 metadata = get_metadata()
