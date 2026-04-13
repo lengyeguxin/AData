@@ -85,9 +85,13 @@ selected_view = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 数据库信息")
 
+# 获取配置管理器（用于获取正确的快照路径）
+config_manager_temp = ConfigManager("config/config.yaml")
+dashboard_db_config = config_manager_temp.get_dashboard_database_config()
+
 # 获取元数据查询器（提前获取，用于显示信息）
-metadata_temp = DatabaseMetadata("data/adata.db", use_snapshot=True)
-db_display_path = metadata_temp.db_path if metadata_temp.using_snapshot else "data/adata.db"
+metadata_temp = DatabaseMetadata(dashboard_db_config['fallback'], use_snapshot=dashboard_db_config['use_snapshot'])
+db_display_path = metadata_temp.db_path if metadata_temp.using_snapshot else dashboard_db_config['fallback']
 snapshot_status = "快照副本" if metadata_temp.using_snapshot else "主数据库"
 
 st.sidebar.info(f"""
@@ -104,7 +108,15 @@ st.sidebar.info(f"""
 @st.cache_resource
 def get_metadata():
     """缓存元数据查询器（使用快照副本进行读写分离）"""
-    metadata = DatabaseMetadata("data/adata.db", use_snapshot=True)
+    # 从ConfigManager获取Dashboard数据库配置
+    config_manager = get_config_manager()
+    dashboard_db_config = config_manager.get_dashboard_database_config()
+
+    # 使用主数据库路径，但启用快照模式（自动fallback到快照）
+    metadata = DatabaseMetadata(
+        dashboard_db_config['fallback'],
+        use_snapshot=dashboard_db_config['use_snapshot']
+    )
 
     # 如果使用快照副本，显示提示信息
     if metadata.using_snapshot:

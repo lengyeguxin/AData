@@ -31,8 +31,8 @@ class DatabaseMetadata:
         """
         if db_path is None:
             # 使用绝对路径，避免工作目录问题
-            project_root = Path(__file__).parent.parent
-            db_path = str(project_root / 'data' / 'adata.db')
+            project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
+            db_path = str(project_root / 'database' / 'adata.db')
 
         # 如果启用快照模式，优先使用快照副本
         if use_snapshot:
@@ -57,7 +57,19 @@ class DatabaseMetadata:
         Returns:
             表名列表
         """
-        return self.db.get_table_list()
+        try:
+            # DuckDB查询所有用户表（排除系统表）
+            query = """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'main'
+                AND table_type = 'BASE TABLE'
+                ORDER BY table_name
+            """
+            result = self.db.execute(query)
+            return [row[0] for row in result]
+        except Exception:
+            return []
 
     def get_table_row_count(self, table_name: str) -> int:
         """

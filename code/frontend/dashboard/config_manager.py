@@ -58,8 +58,15 @@ class ConfigManager:
                 'api_url': 'http://api.tushare.pro',
                 'rate_limit': 500
             },
+            'dashboard': {
+                'database': {
+                    'path': 'database/adata_snapshot.db',
+                    'fallback': 'database/adata.db',
+                    'use_snapshot': True
+                }
+            },
             'database': {
-                'path': 'data/adata.db',
+                'path': 'database/adata.db',
                 'type': 'duckdb'
             },
             'history_import': {
@@ -143,6 +150,28 @@ class ConfigManager:
     def get_scheduler_config(self) -> Dict[str, Any]:
         """获取调度配置"""
         return self.get_section('scheduler')
+
+    def get_dashboard_database_config(self) -> Dict[str, Any]:
+        """
+        获取Dashboard数据库配置（读写分离）
+
+        Returns:
+            Dashboard数据库配置字典 {
+                'path': 快照数据库路径,
+                'fallback': 主数据库路径（备用）,
+                'use_snapshot': 是否使用快照模式
+            }
+        """
+        dashboard_config = self.get_section('dashboard')
+        if 'database' in dashboard_config:
+            return dashboard_config['database']
+        else:
+            # 如果没有配置dashboard.database，使用默认快照配置
+            return {
+                'path': 'database/adata_snapshot.db',
+                'fallback': 'database/adata.db',
+                'use_snapshot': True
+            }
 
     def get_enabled_tables(self) -> List[str]:
         """
