@@ -108,7 +108,8 @@ class DatabaseMetadata:
         """
         智能查询表最新数据时间
 
-        优先级：trade_date > ann_date > updated_at
+        查询策略：按优先级尝试多个日期字段
+        优先级：trade_date > ann_date > end_date > cal_date > list_date > reg_date > in_date > out_date > updated_at
 
         Args:
             table_name: 表名
@@ -116,37 +117,31 @@ class DatabaseMetadata:
         Returns:
             最新日期字符串（YYYY-MM-DD格式），如果查询失败返回None
         """
-        # 策略1: 尝试trade_date字段
-        try:
-            query = f"SELECT MAX(trade_date) FROM {table_name} WHERE trade_date IS NOT NULL"
-            result = self.db.execute(query)
-            if result and result[0] and result[0][0]:
-                date_val = result[0][0]
-                # 转换为字符串
-                return str(date_val)[:10] if len(str(date_val)) >= 10 else str(date_val)
-        except Exception:
-            pass
+        # 日期字段候选列表（按优先级排序）
+        date_field_candidates = [
+            'trade_date',    # 行情表（stock_daily、index_daily、etf_daily等）
+            'ann_date',      # 财务表（income、balancesheet、cashflow等）
+            'end_date',      # 财务报告期
+            'cal_date',      # 交易日历
+            'list_date',     # 股票列表、指数列表、ETF列表
+            'reg_date',      # 游资账户注册日期
+            'in_date',       # 概念板块纳入日期
+            'out_date',      # 概念板块剔除日期
+            'updated_at'     # 最后更新时间
+        ]
 
-        # 策略2: 尝试ann_date字段
-        try:
-            query = f"SELECT MAX(ann_date) FROM {table_name} WHERE ann_date IS NOT NULL"
-            result = self.db.execute(query)
-            if result and result[0] and result[0][0]:
-                date_val = result[0][0]
-                return str(date_val)[:10] if len(str(date_val)) >= 10 else str(date_val)
-        except Exception:
-            pass
-
-        # 策略3: 尝试updated_at字段
-        try:
-            query = f"SELECT MAX(updated_at) FROM {table_name} WHERE updated_at IS NOT NULL"
-            result = self.db.execute(query)
-            if result and result[0] and result[0][0]:
-                date_val = result[0][0]
-                # updated_at是时间戳，只返回日期部分
-                return str(date_val)[:10]
-        except Exception:
-            pass
+        # 按优先级依次尝试查询
+        for date_field in date_field_candidates:
+            try:
+                query = f"SELECT MAX({date_field}) FROM {table_name} WHERE {date_field} IS NOT NULL"
+                result = self.db.execute(query)
+                if result and result[0] and result[0][0]:
+                    date_val = result[0][0]
+                    # 转换为字符串（只取日期部分）
+                    return str(date_val)[:10] if len(str(date_val)) >= 10 else str(date_val)
+            except Exception:
+                # 该字段不存在，继续尝试下一个字段
+                continue
 
         return None
 

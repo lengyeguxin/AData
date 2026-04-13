@@ -82,26 +82,27 @@ def render_fetch_control(config_manager: ConfigManager):
     try:
         cursors = cursor_manager.get_all_cursors()
 
-        # 按游标类型分组
-        cursors_by_type = {}
+        # 按游标策略分组
+        cursors_by_strategy = {}
         for cursor in cursors:
-            cursor_type = cursor['cursor_type']
-            if cursor_type not in cursors_by_type:
-                cursors_by_type[cursor_type] = []
-            cursors_by_type[cursor_type].append(cursor)
+            cursor_strategy = cursor['cursor_strategy']
+            if cursor_strategy not in cursors_by_strategy:
+                cursors_by_strategy[cursor_strategy] = []
+            cursors_by_strategy[cursor_strategy].append(cursor)
 
         # 显示每组游标
-        for cursor_type, type_name in [
+        for cursor_strategy, type_name in [
             ('daily', '按天更新'),
             ('monthly', '按月更新'),
             ('yearly', '按年更新'),
-            ('once', '一次性更新')
+            ('once', '一次性更新'),
+            ('none', '无游标')
         ]:
-            if cursor_type in cursors_by_type:
-                with st.expander(f"{type_name} ({len(cursors_by_type[cursor_type])}张表)", expanded=True):
+            if cursor_strategy in cursors_by_strategy:
+                with st.expander(f"{type_name} ({len(cursors_by_strategy[cursor_strategy])}张表)", expanded=True):
                     # 显示表格
                     display_data = []
-                    for cursor in cursors_by_type[cursor_type]:
+                    for cursor in cursors_by_strategy[cursor_strategy]:
                         status_emoji = {
                             'pending': '⏳',
                             'running': '🔄',
