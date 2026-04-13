@@ -24,7 +24,7 @@ def render_table_list(metadata: DatabaseMetadata):
     with col1:
         category_filter = st.selectbox(
             "选择分类",
-            ["全部", "P0", "P1财务", "P1指数", "P1其他", "P2", "P2滚动"],
+            ["全部", "P0基础", "P1行情", "P2财务", "P3资金流向(THS)", "P3概念板块", "P4游资", "系统表", "P5滚动"],
             key="category_filter"
         )
 
