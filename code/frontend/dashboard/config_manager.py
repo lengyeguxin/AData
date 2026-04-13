@@ -15,12 +15,12 @@ logger = structlog.get_logger()
 class ConfigManager:
     """配置管理器"""
 
-    def __init__(self, config_path: str = "config/config.yaml"):
+    def __init__(self, config_path: str = "code/backend/config/config.yaml"):
         """
         初始化配置管理器
 
         Args:
-            config_path: 配置文件路径
+            config_path: 配置文件路径（默认使用backend配置）
         """
         self.config_path = Path(config_path)
         self.config = self._load_config()
