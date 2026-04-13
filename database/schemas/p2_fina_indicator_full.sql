@@ -1,9 +1,9 @@
 -- 1. fina_indicator（财务指标）
 -- 完整字段定义（对照Tushare官方文档：https://tushare.pro/document/2?doc_id=79）
 CREATE TABLE IF NOT EXISTS fina_indicator (
-    ts_code VARCHAR(10),
-    ann_date DATE,
-    end_date DATE,
+    ts_code VARCHAR(10),  -- 股票代码/指数代码/ETF代码
+    ann_date DATE,  -- 公告日期
+    end_date DATE,  -- 计算截至日期
 
     -- 每股指标
     eps REAL,                    -- 每股收益
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS fina_indicator (
     update_flag VARCHAR(10),     -- 更新标识
 
     -- 更新时间
-    updated_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
 
     PRIMARY KEY (ts_code, end_date)
 );
