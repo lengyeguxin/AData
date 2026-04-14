@@ -2,7 +2,6 @@
 -- API接口: index_basic
 -- API字段数: 13
 
-
 CREATE TABLE IF NOT EXISTS index_basic (
     ts_code VARCHAR(20) PRIMARY KEY,  -- TS代码
     name VARCHAR(100),  -- 简称
@@ -19,6 +18,7 @@ CREATE TABLE IF NOT EXISTS index_basic (
     exp_date DATE,  -- 终止日期
     updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
+
 
 
 -- 索引

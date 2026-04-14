@@ -2,7 +2,6 @@
 -- API接口: stock_daily_basic
 -- API字段数: 18
 
-
 CREATE TABLE IF NOT EXISTS stock_daily_basic (
     ts_code VARCHAR(20),  -- TS股票代码
     trade_date DATE,  -- 交易日期
@@ -22,10 +21,10 @@ CREATE TABLE IF NOT EXISTS stock_daily_basic (
     free_share REAL,  -- 自由流通股本 （万）
     total_mv REAL,  -- 总市值 （万元）
     circ_mv REAL,  -- 流通市值（万元）
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, trade_date)
 );
 
--- 复合主键
 
 
 -- 索引

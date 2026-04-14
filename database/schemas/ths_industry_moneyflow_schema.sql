@@ -2,7 +2,6 @@
 -- API接口: ths_industry_moneyflow
 -- API字段数: 12
 
-
 CREATE TABLE IF NOT EXISTS ths_industry_moneyflow (
     trade_date DATE,  -- 交易日期
     ts_code VARCHAR(20),  -- 板块代码
@@ -16,10 +15,10 @@ CREATE TABLE IF NOT EXISTS ths_industry_moneyflow (
     net_buy_amount REAL,  -- 流入资金(亿元)
     net_sell_amount REAL,  -- 流出资金(亿元)
     net_amount REAL,  -- 净额(亿元)
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, trade_date)
 );
 
--- 复合主键
 
 
 -- 索引

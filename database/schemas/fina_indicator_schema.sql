@@ -2,7 +2,6 @@
 -- API接口: fina_indicator
 -- API字段数: 167
 
-
 CREATE TABLE IF NOT EXISTS fina_indicator (
     ts_code VARCHAR(20),  -- TS代码
     ann_date DATE,  -- 公告日期
@@ -171,10 +170,10 @@ CREATE TABLE IF NOT EXISTS fina_indicator (
     equity_yoy REAL,  -- 净资产同比增长率
     rd_exp REAL,  -- 研发费用
     update_flag VARCHAR(100),  -- 更新标识
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, end_date)
 );
 
--- 复合主键
 
 
 -- 索引

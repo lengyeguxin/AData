@@ -2,7 +2,6 @@
 -- API接口: cashflow
 -- API字段数: 97
 
-
 CREATE TABLE IF NOT EXISTS cashflow (
     ts_code VARCHAR(20),  -- TS股票代码
     ann_date DATE,  -- 公告日期
@@ -101,10 +100,10 @@ CREATE TABLE IF NOT EXISTS cashflow (
     end_bal_cash_equ REAL,  -- 加:现金等价物的期末余额
     beg_bal_cash_equ REAL,  -- 减:现金等价物的期初余额
     update_flag VARCHAR(100),  -- 更新标志(1最新）
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, end_date, report_type)
 );
 
--- 复合主键
 
 
 -- 索引

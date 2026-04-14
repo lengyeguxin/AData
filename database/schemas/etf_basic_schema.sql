@@ -2,7 +2,6 @@
 -- API接口: etf_basic
 -- API字段数: 14
 
-
 CREATE TABLE IF NOT EXISTS etf_basic (
     ts_code VARCHAR(20) PRIMARY KEY,  -- 基金交易代码
     csname VARCHAR(100),  -- ETF中文简称
@@ -20,6 +19,7 @@ CREATE TABLE IF NOT EXISTS etf_basic (
     etf_type VARCHAR(20),  -- 基金投资通道类型（境内、QDII）
     updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
+
 
 
 -- 索引

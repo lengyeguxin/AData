@@ -2,7 +2,6 @@
 -- API接口: etf_index
 -- API字段数: 8
 
-
 CREATE TABLE IF NOT EXISTS etf_index (
     ts_code VARCHAR(20) PRIMARY KEY,  -- 指数代码
     indx_name VARCHAR(100),  -- 指数全称
@@ -14,6 +13,7 @@ CREATE TABLE IF NOT EXISTS etf_index (
     adj_circle VARCHAR(100),  -- 指数成份证券调整周期
     updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
+
 
 
 -- 索引

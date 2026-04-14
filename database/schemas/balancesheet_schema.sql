@@ -2,7 +2,6 @@
 -- API接口: balancesheet
 -- API字段数: 158
 
-
 CREATE TABLE IF NOT EXISTS balancesheet (
     ts_code VARCHAR(20),  -- TS股票代码
     ann_date DATE,  -- 公告日期
@@ -162,10 +161,10 @@ CREATE TABLE IF NOT EXISTS balancesheet (
     oth_rcv_total REAL,  -- 其他应收款(合计)（元）
     fix_assets_total REAL,  -- 固定资产(合计)(元)
     update_flag VARCHAR(100),  -- 更新标识
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, end_date, report_type)
 );
 
--- 复合主键
 
 
 -- 索引
