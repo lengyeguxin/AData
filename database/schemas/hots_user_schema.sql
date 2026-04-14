@@ -12,5 +12,3 @@ CREATE TABLE IF NOT EXISTS hots_user (
 
 
 -- 索引
-CREATE INDEX IF NOT EXISTS idx_hots_user_account ON hots_user(account);
-CREATE INDEX IF NOT EXISTS idx_hots_user_broker_name ON hots_user(broker_name);

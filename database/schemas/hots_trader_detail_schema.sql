@@ -20,6 +20,5 @@ CREATE TABLE IF NOT EXISTS hots_trader_detail (
 
 
 -- 索引
-CREATE INDEX IF NOT EXISTS idx_hots_trader_detail_account ON hots_trader_detail(account);
 CREATE INDEX IF NOT EXISTS idx_hots_trader_detail_code ON hots_trader_detail(ts_code);
 CREATE INDEX IF NOT EXISTS idx_hots_trader_detail_date ON hots_trader_detail(trade_date);
