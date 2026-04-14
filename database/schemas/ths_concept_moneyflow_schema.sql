@@ -2,6 +2,8 @@
 -- API接口: ths_concept_moneyflow
 -- API字段数: 12
 
+COMMENT ON TABLE ths_concept_moneyflow IS '同花顺概念板块资金流向';
+
 CREATE TABLE IF NOT EXISTS ths_concept_moneyflow (
     trade_date DATE,  -- 交易日期
     ts_code VARCHAR(20),  -- 板块代码
@@ -15,11 +17,11 @@ CREATE TABLE IF NOT EXISTS ths_concept_moneyflow (
     net_buy_amount REAL,  -- 流入资金(亿元)
     net_sell_amount REAL,  -- 流出资金(亿元)
     net_amount REAL,  -- 净额(亿元)
-    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
-    PRIMARY KEY (ts_code, trade_date)
+    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
 
-COMMENT ON TABLE ths_concept_moneyflow IS '同花顺概念板块资金流向';
+-- 复合主键
+ALTER TABLE ths_concept_moneyflow ADD PRIMARY KEY (ts_code, trade_date);
 
 COMMENT ON COLUMN ths_concept_moneyflow.trade_date IS '交易日期';
 COMMENT ON COLUMN ths_concept_moneyflow.ts_code IS '板块代码';

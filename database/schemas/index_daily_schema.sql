@@ -2,6 +2,8 @@
 -- API接口: index_daily
 -- API字段数: 11
 
+COMMENT ON TABLE index_daily IS '指数日线行情';
+
 CREATE TABLE IF NOT EXISTS index_daily (
     ts_code VARCHAR(20),  -- TS指数代码
     trade_date DATE,  -- 交易日
@@ -14,11 +16,11 @@ CREATE TABLE IF NOT EXISTS index_daily (
     pct_chg REAL,  -- 涨跌幅（%）
     vol REAL,  -- 成交量（手）
     amount REAL,  -- 成交额（千元）
-    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
-    PRIMARY KEY (ts_code, trade_date)
+    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
 
-COMMENT ON TABLE index_daily IS '指数日线行情';
+-- 复合主键
+ALTER TABLE index_daily ADD PRIMARY KEY (ts_code, trade_date);
 
 COMMENT ON COLUMN index_daily.ts_code IS 'TS指数代码';
 COMMENT ON COLUMN index_daily.trade_date IS '交易日';
