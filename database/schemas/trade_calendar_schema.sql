@@ -2,18 +2,16 @@
 -- API接口: trade_calendar
 -- API字段数: 4
 
-COMMENT ON TABLE trade_calendar IS '交易日历';
-
 CREATE TABLE IF NOT EXISTS trade_calendar (
     exchange VARCHAR(20),  -- 交易所 SSE上交所 SZSE深交所
     cal_date DATE,  -- 日历日期
     is_open VARCHAR(100),  -- 是否交易 0休市 1交易
     pretrade_date DATE,  -- 上一个交易日
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (exchange, cal_date)
 );
 
--- 复合主键
-ALTER TABLE trade_calendar ADD PRIMARY KEY (exchange, cal_date);
+COMMENT ON TABLE trade_calendar IS '交易日历';
 
 COMMENT ON COLUMN trade_calendar.exchange IS '交易所 SSE上交所 SZSE深交所';
 COMMENT ON COLUMN trade_calendar.cal_date IS '日历日期';

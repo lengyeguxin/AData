@@ -2,8 +2,6 @@
 -- API接口: express_brief
 -- API字段数: 32
 
-COMMENT ON TABLE express_brief IS '业绩快报摘要';
-
 CREATE TABLE IF NOT EXISTS express_brief (
     ts_code VARCHAR(20),  -- TS股票代码
     ann_date DATE,  -- 公告日期
@@ -37,11 +35,11 @@ CREATE TABLE IF NOT EXISTS express_brief (
     perf_summary VARCHAR(100),  -- 业绩简要说明
     is_audit VARCHAR(100),  -- 是否审计： 1是 0否
     remark VARCHAR(100),  -- 备注
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, end_date, ann_date)
 );
 
--- 复合主键
-ALTER TABLE express_brief ADD PRIMARY KEY (ts_code, end_date, ann_date);
+COMMENT ON TABLE express_brief IS '业绩快报摘要';
 
 COMMENT ON COLUMN express_brief.ts_code IS 'TS股票代码';
 COMMENT ON COLUMN express_brief.ann_date IS '公告日期';

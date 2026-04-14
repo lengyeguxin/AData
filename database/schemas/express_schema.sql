@@ -2,8 +2,6 @@
 -- API接口: express
 -- API字段数: 12
 
-COMMENT ON TABLE express IS '业绩快报';
-
 CREATE TABLE IF NOT EXISTS express (
     ts_code VARCHAR(20),  -- TS股票代码
     ann_date DATE,  -- 公告日期
@@ -17,11 +15,11 @@ CREATE TABLE IF NOT EXISTS express (
     first_ann_date DATE,  -- 首次公告日
     summary VARCHAR(100),  -- 业绩预告摘要
     change_reason VARCHAR(500),  -- 业绩变动原因
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, end_date, ann_date)
 );
 
--- 复合主键
-ALTER TABLE express ADD PRIMARY KEY (ts_code, end_date, ann_date);
+COMMENT ON TABLE express IS '业绩快报';
 
 COMMENT ON COLUMN express.ts_code IS 'TS股票代码';
 COMMENT ON COLUMN express.ann_date IS '公告日期';

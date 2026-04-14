@@ -2,8 +2,6 @@
 -- API接口: income
 -- API字段数: 94
 
-COMMENT ON TABLE income IS '利润表';
-
 CREATE TABLE IF NOT EXISTS income (
     ts_code VARCHAR(20),  -- TS代码
     ann_date DATE,  -- 公告日期
@@ -99,11 +97,11 @@ CREATE TABLE IF NOT EXISTS income (
     continued_net_profit REAL,  -- 持续经营净利润
     end_net_profit REAL,  -- 终止经营净利润
     update_flag VARCHAR(100),  -- 更新标识
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, end_date, report_type)
 );
 
--- 复合主键
-ALTER TABLE income ADD PRIMARY KEY (ts_code, end_date, report_type);
+COMMENT ON TABLE income IS '利润表';
 
 COMMENT ON COLUMN income.ts_code IS 'TS代码';
 COMMENT ON COLUMN income.ann_date IS '公告日期';

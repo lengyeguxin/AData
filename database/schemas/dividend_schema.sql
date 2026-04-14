@@ -2,8 +2,6 @@
 -- API接口: dividend
 -- API字段数: 16
 
-COMMENT ON TABLE dividend IS '分红送股数据';
-
 CREATE TABLE IF NOT EXISTS dividend (
     ts_code VARCHAR(20),  -- TS代码
     end_date DATE,  -- 分红年度
@@ -21,11 +19,11 @@ CREATE TABLE IF NOT EXISTS dividend (
     imp_ann_date DATE,  -- 实施公告日
     base_date DATE,  -- 基准日
     base_share REAL,  -- 基准股本（万）
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, end_date, ann_date)
 );
 
--- 复合主键
-ALTER TABLE dividend ADD PRIMARY KEY (ts_code, end_date, ann_date);
+COMMENT ON TABLE dividend IS '分红送股数据';
 
 COMMENT ON COLUMN dividend.ts_code IS 'TS代码';
 COMMENT ON COLUMN dividend.end_date IS '分红年度';

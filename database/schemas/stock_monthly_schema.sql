@@ -2,8 +2,6 @@
 -- API接口: stock_monthly
 -- API字段数: 21
 
-COMMENT ON TABLE stock_monthly IS '股票月线行情';
-
 CREATE TABLE IF NOT EXISTS stock_monthly (
     ts_code VARCHAR(20),  -- 股票代码
     trade_date DATE,  -- 交易日期（每周五或者月末日期）
@@ -26,11 +24,11 @@ CREATE TABLE IF NOT EXISTS stock_monthly (
     amount REAL,  -- (周/月)成交额
     change REAL,  -- (周/月)涨跌额
     pct_chg REAL,  -- (周/月)涨跌幅 【基于除权后的昨收计算的涨跌幅：（今收-除权昨收）/除权昨收 】
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, trade_date)
 );
 
--- 复合主键
-ALTER TABLE stock_monthly ADD PRIMARY KEY (ts_code, trade_date);
+COMMENT ON TABLE stock_monthly IS '股票月线行情';
 
 COMMENT ON COLUMN stock_monthly.ts_code IS '股票代码';
 COMMENT ON COLUMN stock_monthly.trade_date IS '交易日期（每周五或者月末日期）';

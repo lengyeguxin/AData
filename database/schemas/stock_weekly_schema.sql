@@ -2,8 +2,6 @@
 -- API接口: stock_weekly
 -- API字段数: 21
 
-COMMENT ON TABLE stock_weekly IS '股票周线行情';
-
 CREATE TABLE IF NOT EXISTS stock_weekly (
     ts_code VARCHAR(20),  -- 股票代码
     trade_date DATE,  -- 交易日期（每周五或者月末日期）
@@ -26,11 +24,11 @@ CREATE TABLE IF NOT EXISTS stock_weekly (
     amount REAL,  -- (周/月)成交额
     change REAL,  -- (周/月)涨跌额
     pct_chg REAL,  -- (周/月)涨跌幅 【基于除权后的昨收计算的涨跌幅：（今收-除权昨收）/除权昨收 】
-    updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
+    updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
+    PRIMARY KEY (ts_code, trade_date)
 );
 
--- 复合主键
-ALTER TABLE stock_weekly ADD PRIMARY KEY (ts_code, trade_date);
+COMMENT ON TABLE stock_weekly IS '股票周线行情';
 
 COMMENT ON COLUMN stock_weekly.ts_code IS '股票代码';
 COMMENT ON COLUMN stock_weekly.trade_date IS '交易日期（每周五或者月末日期）';

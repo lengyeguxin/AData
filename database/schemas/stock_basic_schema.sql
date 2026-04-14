@@ -2,8 +2,6 @@
 -- API接口: stock_basic
 -- API字段数: 17
 
-COMMENT ON TABLE stock_basic IS '股票列表';
-
 CREATE TABLE IF NOT EXISTS stock_basic (
     ts_code VARCHAR(20) PRIMARY KEY,  -- TS代码
     symbol VARCHAR(20),  -- 股票代码
@@ -24,6 +22,8 @@ CREATE TABLE IF NOT EXISTS stock_basic (
     act_ent_type VARCHAR(20),  -- 实控人企业性质
     updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
+
+COMMENT ON TABLE stock_basic IS '股票列表';
 
 COMMENT ON COLUMN stock_basic.ts_code IS 'TS代码';
 COMMENT ON COLUMN stock_basic.symbol IS '股票代码';
