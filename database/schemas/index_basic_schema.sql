@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS index_basic (
     base_point REAL,  -- 基点
     list_date DATE,  -- 发布日期
     weight_rule VARCHAR(100),  -- 加权方式
-    desc VARCHAR(100),  -- 描述
+    description VARCHAR(100),  -- 描述（原desc列，desc是DuckDB保留关键字）
     exp_date DATE,  -- 终止日期
     updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
