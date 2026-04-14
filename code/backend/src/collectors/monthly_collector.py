@@ -39,32 +39,26 @@ class MonthlyCollector(BaseCollector):
             vip_interface=True  # VIP接口
         )
 
-    def collect_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
+    def collect(self, **kwargs) -> List[Dict]:
         """
-        按日期范围拉取月线数据（VIP接口）
+        拉取月线数据（自动添加freq参数）
 
         Args:
-            start_date: 开始日期（YYYYMMDD格式）
-            end_date: 结束日期（YYYYMMDD格式）
+            **kwargs: API参数（如trade_date, ts_code等）
 
         Returns:
             月线数据列表
 
         注意：
-            - 使用VIP接口stk_week_month_adj
-            - freq='month'（月线）
-            - 按日期范围拉取（不是单个交易日）
+            - 自动添加freq='month'参数（API必填）
+            - 支持按trade_date拉取（DataFetcher调用）
+            - 支持按start_date/end_date范围拉取（手动调用）
         """
-        self.logger.info(f"拉取月线数据（VIP接口）: start_date={start_date}, end_date={end_date}")
+        # 自动添加freq参数（API必填）
+        kwargs['freq'] = 'month'
 
-        # 严格按照CSV文档参数
-        data = self.collect(
-            start_date=start_date,
-            end_date=end_date,
-            freq='month'  # 月线（CSV文档明确要求）
-        )
-
-        return data
+        # 调用父类collect方法
+        return super().collect(**kwargs)
 
     def _extract_values(self, item: Dict) -> tuple:
         """
@@ -125,7 +119,7 @@ class MonthlyCollector(BaseCollector):
 
 def run_by_date_range(self, start_date: str, end_date: str) -> int:
         """
-        拉取并保存指定日期范围数据（VIP接口）
+        按日期范围拉取月线数据（VIP接口）
 
         Args:
             start_date: 开始日期（YYYYMMDD）
@@ -134,5 +128,6 @@ def run_by_date_range(self, start_date: str, end_date: str) -> int:
         Returns:
             保存的记录数
         """
-        data = self.collect_by_date_range(start_date, end_date)
+        # collect()方法会自动添加freq='month'
+        data = self.collect(start_date=start_date, end_date=end_date)
         return self.save(data)
