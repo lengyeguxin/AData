@@ -2,7 +2,6 @@
 -- API接口: trade_calendar
 -- API字段数: 4
 
-COMMENT ON TABLE trade_calendar IS '交易日历';
 
 CREATE TABLE IF NOT EXISTS trade_calendar (
     exchange VARCHAR(20),  -- 交易所 SSE上交所 SZSE深交所
@@ -15,11 +14,6 @@ CREATE TABLE IF NOT EXISTS trade_calendar (
 -- 复合主键
 ALTER TABLE trade_calendar ADD PRIMARY KEY (exchange, cal_date);
 
-COMMENT ON COLUMN trade_calendar.exchange IS '交易所 SSE上交所 SZSE深交所';
-COMMENT ON COLUMN trade_calendar.cal_date IS '日历日期';
-COMMENT ON COLUMN trade_calendar.is_open IS '是否交易 0休市 1交易';
-COMMENT ON COLUMN trade_calendar.pretrade_date IS '上一个交易日';
-COMMENT ON COLUMN trade_calendar.updated_at IS '更新时间';
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_trade_calendar_date ON trade_calendar(cal_date);

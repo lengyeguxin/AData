@@ -2,7 +2,6 @@
 -- API接口: stock_basic
 -- API字段数: 17
 
-COMMENT ON TABLE stock_basic IS '股票列表';
 
 CREATE TABLE IF NOT EXISTS stock_basic (
     ts_code VARCHAR(20) PRIMARY KEY,  -- TS代码
@@ -25,24 +24,6 @@ CREATE TABLE IF NOT EXISTS stock_basic (
     updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
 
-COMMENT ON COLUMN stock_basic.ts_code IS 'TS代码';
-COMMENT ON COLUMN stock_basic.symbol IS '股票代码';
-COMMENT ON COLUMN stock_basic.name IS '股票名称';
-COMMENT ON COLUMN stock_basic.area IS '地域';
-COMMENT ON COLUMN stock_basic.industry IS '所属行业';
-COMMENT ON COLUMN stock_basic.fullname IS '股票全称';
-COMMENT ON COLUMN stock_basic.enname IS '英文全称';
-COMMENT ON COLUMN stock_basic.cnspell IS '拼音缩写';
-COMMENT ON COLUMN stock_basic.market IS '市场类型（主板/创业板/科创板/CDR）';
-COMMENT ON COLUMN stock_basic.exchange IS '交易所代码';
-COMMENT ON COLUMN stock_basic.curr_type IS '交易货币';
-COMMENT ON COLUMN stock_basic.list_status IS '上市状态 L上市 D退市 G过会未交易 P暂停上市';
-COMMENT ON COLUMN stock_basic.list_date IS '上市日期';
-COMMENT ON COLUMN stock_basic.delist_date IS '退市日期';
-COMMENT ON COLUMN stock_basic.is_hs IS '是否沪深港通标的，N否 H沪股通 S深股通';
-COMMENT ON COLUMN stock_basic.act_name IS '实控人名称';
-COMMENT ON COLUMN stock_basic.act_ent_type IS '实控人企业性质';
-COMMENT ON COLUMN stock_basic.updated_at IS '更新时间';
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_stock_basic_code ON stock_basic(ts_code);

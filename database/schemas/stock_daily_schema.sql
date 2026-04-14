@@ -2,7 +2,6 @@
 -- API接口: stock_daily
 -- API字段数: 11
 
-COMMENT ON TABLE stock_daily IS '股票日线行情';
 
 CREATE TABLE IF NOT EXISTS stock_daily (
     ts_code VARCHAR(20),  -- 股票代码
@@ -22,18 +21,6 @@ CREATE TABLE IF NOT EXISTS stock_daily (
 -- 复合主键
 ALTER TABLE stock_daily ADD PRIMARY KEY (ts_code, trade_date);
 
-COMMENT ON COLUMN stock_daily.ts_code IS '股票代码';
-COMMENT ON COLUMN stock_daily.trade_date IS '交易日期';
-COMMENT ON COLUMN stock_daily.open IS '开盘价';
-COMMENT ON COLUMN stock_daily.high IS '最高价';
-COMMENT ON COLUMN stock_daily.low IS '最低价';
-COMMENT ON COLUMN stock_daily.close IS '收盘价';
-COMMENT ON COLUMN stock_daily.pre_close IS '昨收价【除权价】';
-COMMENT ON COLUMN stock_daily.change IS '涨跌额';
-COMMENT ON COLUMN stock_daily.pct_chg IS '涨跌幅（%） 【基于除权后的昨收计算的涨跌幅：（今收-除权昨收）/除权昨收 】';
-COMMENT ON COLUMN stock_daily.vol IS '成交量 （手）';
-COMMENT ON COLUMN stock_daily.amount IS '成交额 （千元）';
-COMMENT ON COLUMN stock_daily.updated_at IS '更新时间';
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_stock_daily_code ON stock_daily(ts_code);

@@ -2,7 +2,6 @@
 -- API接口: ths_concept_member
 -- API字段数: 7
 
-COMMENT ON TABLE ths_concept_member IS '同花顺概念板块成分';
 
 CREATE TABLE IF NOT EXISTS ths_concept_member (
     ts_code VARCHAR(20),  -- 指数代码
@@ -18,14 +17,6 @@ CREATE TABLE IF NOT EXISTS ths_concept_member (
 -- 复合主键
 ALTER TABLE ths_concept_member ADD PRIMARY KEY (ts_code, con_code);
 
-COMMENT ON COLUMN ths_concept_member.ts_code IS '指数代码';
-COMMENT ON COLUMN ths_concept_member.con_code IS '股票代码';
-COMMENT ON COLUMN ths_concept_member.con_name IS '股票名称';
-COMMENT ON COLUMN ths_concept_member.weight IS '权重(暂无)';
-COMMENT ON COLUMN ths_concept_member.in_date IS '纳入日期(暂无)';
-COMMENT ON COLUMN ths_concept_member.out_date IS '剔除日期(暂无)';
-COMMENT ON COLUMN ths_concept_member.is_new IS '是否最新Y是N否';
-COMMENT ON COLUMN ths_concept_member.updated_at IS '更新时间';
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_ths_concept_member_ts_code ON ths_concept_member(ts_code);

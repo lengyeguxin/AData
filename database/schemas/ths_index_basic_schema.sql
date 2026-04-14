@@ -2,7 +2,6 @@
 -- API接口: ths_index_basic
 -- API字段数: 6
 
-COMMENT ON TABLE ths_index_basic IS '同花顺指数基本信息';
 
 CREATE TABLE IF NOT EXISTS ths_index_basic (
     ts_code VARCHAR(20) PRIMARY KEY,  -- 代码
@@ -14,13 +13,6 @@ CREATE TABLE IF NOT EXISTS ths_index_basic (
     updated_at TIMESTAMP DEFAULT NOW()  -- 更新时间
 );
 
-COMMENT ON COLUMN ths_index_basic.ts_code IS '代码';
-COMMENT ON COLUMN ths_index_basic.name IS '名称';
-COMMENT ON COLUMN ths_index_basic.count IS '成分个数';
-COMMENT ON COLUMN ths_index_basic.exchange IS '交易所';
-COMMENT ON COLUMN ths_index_basic.list_date IS '上市日期';
-COMMENT ON COLUMN ths_index_basic.type IS 'N概念指数S特色指数';
-COMMENT ON COLUMN ths_index_basic.updated_at IS '更新时间';
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_ths_index_basic_code ON ths_index_basic(ts_code);
