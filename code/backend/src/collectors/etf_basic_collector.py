@@ -97,6 +97,10 @@ class ETFBasicCollector(BaseCollector):
         """
         构建INSERT语句（ON CONFLICT处理，完整17个字段）
 
+        注意：
+            - fund_type字段有索引，ON CONFLICT时不更新（避免约束错误）
+            - ts_code是PRIMARY KEY，ON CONFLICT时也不更新
+
         Returns:
             INSERT SQL语句
         """
@@ -111,7 +115,6 @@ class ETFBasicCollector(BaseCollector):
             DO UPDATE SET
                 name = excluded.name,
                 fullname = excluded.fullname,
-                fund_type = excluded.fund_type,
                 fund_manager = excluded.fund_manager,
                 list_date = excluded.list_date,
                 issue_date = excluded.issue_date,

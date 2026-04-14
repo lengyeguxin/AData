@@ -38,7 +38,7 @@ class TushareAPI:
                 - rate_limit: 速率限制（次/分钟）
         """
         self.token = config.get('token', '')
-        self.api_url = config.get('api_url', 'http://lianghua.nanyangqiankun.top')
+        self.api_url = config.get('api_url', 'http://8.136.22.187:8010/')  # 新代理地址
         self.rate_limit = config.get('rate_limit', 500)  # 每分钟500次
 
         self.logger = get_logger(__name__)

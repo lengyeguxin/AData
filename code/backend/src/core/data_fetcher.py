@@ -11,7 +11,6 @@
 
 import sys
 from pathlib import Path
-import duckdb
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -132,9 +131,10 @@ class DataFetcher:
         """
 
         try:
-            conn = duckdb.connect(self.db_path, read_only=True)
-            results = conn.execute(query).fetchall()
-            conn.close()
+            # 使用Database类统一管理连接
+            from src.core.database import Database
+            db = Database(self.db_path)
+            results = db.execute(query)
 
             # 转换为YYYYMMDD格式（去掉横线）
             trade_dates = [str(row[0]).replace('-', '') for row in results]
@@ -295,9 +295,38 @@ class DataFetcher:
         """
         self.logger.info(f"{table_name}: 无游标策略，全量拉取")
 
-        # TODO: 调用对应的Collector拉取数据
-        # 目前返回0（待实现）
-        return 0
+        # 获取对应的Collector
+        collector = self._get_collector(table_name)
+
+        if not collector:
+            self.logger.error(f"{table_name}: 未找到对应的Collector")
+            return 0
+
+        # 调用Collector拉取数据
+        try:
+            # 不同表的拉取参数不同
+            if table_name == 'stock_basic':
+                count = collector.run()
+            elif table_name == 'trade_calendar':
+                # 拉取当年数据
+                current_year = datetime.now().year
+                count = collector.run_year(current_year)
+            elif table_name == 'index_basic':
+                count = collector.run()
+            elif table_name == 'etf_basic':
+                count = collector.run()
+            elif table_name == 'ths_index_basic':
+                count = collector.run()
+            else:
+                # 默认全量拉取
+                count = collector.run()
+
+            self.logger.info(f"{table_name}: 全量拉取成功 ({count}条记录)")
+            return count
+
+        except Exception as e:
+            self.logger.error(f"{table_name}: 全量拉取失败: {e}")
+            raise
 
     def _fetch_daily_trade_strategy(self, table_name: str) -> int:
         """
@@ -328,7 +357,14 @@ class DataFetcher:
             self.logger.info(f"{table_name}: 无新交易日需要拉取")
             return 0
 
-        # 4. 遍历交易日拉取
+        # 4. 获取Collector
+        collector = self._get_collector(table_name)
+
+        if not collector:
+            self.logger.error(f"{table_name}: 未找到对应的Collector")
+            return 0
+
+        # 5. 遍历交易日拉取
         total_count = 0
         for trade_date in trade_dates:
             # 检查数据是否已存在（避免重复爬取）
@@ -336,14 +372,19 @@ class DataFetcher:
                 self.logger.info(f"{table_name}: {trade_date} 数据已存在，跳过")
                 continue
 
-            # TODO: 调用Collector拉取该日期数据
-            # count = self._call_collector(table_name, trade_date)
-            count = 0  # 待实现
+            try:
+                # 调用Collector拉取该日期数据
+                count = collector.run(trade_date=trade_date)
 
-            total_count += count
+                total_count += count
 
-            if count > 0:
-                self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
+                if count > 0:
+                    self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
+
+            except Exception as e:
+                self.logger.error(f"{table_name}: {trade_date} 拉取失败: {e}")
+                # 继续拉取下一个日期
+                continue
 
         return total_count
 
@@ -367,7 +408,14 @@ class DataFetcher:
 
         self.logger.info(f"{table_name}: 从 {start_date} 到 {end_date}（自然日）")
 
-        # 3. 遍历自然日拉取
+        # 3. 获取Collector
+        collector = self._get_collector(table_name)
+
+        if not collector:
+            self.logger.error(f"{table_name}: 未找到对应的Collector")
+            return 0
+
+        # 4. 遍历自然日拉取
         total_count = 0
         current_date = datetime.strptime(start_date, '%Y%m%d')
         end_datetime = datetime.strptime(end_date, '%Y%m%d')
@@ -381,17 +429,26 @@ class DataFetcher:
                 current_date += timedelta(days=1)
                 continue
 
-            # TODO: 调用Collector拉取该日期数据
-            # count = self._call_collector(table_name, date_str)
-            count = 0  # 待实现
+            try:
+                # 调用Collector拉取该日期数据
+                # 财务表需要report_type参数
+                if table_name in ['income', 'balancesheet', 'cashflow']:
+                    count = collector.run(ann_date=date_str, report_type='1')
+                else:
+                    count = collector.run(ann_date=date_str)
 
-            total_count += count
+                total_count += count
 
-            if count > 0:
-                self.logger.info(f"{table_name}: {date_str} 拉取成功 ({count}条)")
-            else:
-                # 财务表允许无数据（ann_date可能无数据）
-                self.logger.info(f"{table_name}: {date_str} 无数据（正常）")
+                if count > 0:
+                    self.logger.info(f"{table_name}: {date_str} 拉取成功 ({count}条)")
+                else:
+                    # 财务表允许无数据（ann_date可能无数据）
+                    self.logger.info(f"{table_name}: {date_str} 无数据（正常）")
+
+            except Exception as e:
+                self.logger.error(f"{table_name}: {date_str} 拉取失败: {e}")
+                current_date += timedelta(days=1)
+                continue
 
             current_date += timedelta(days=1)
 
@@ -417,11 +474,26 @@ class DataFetcher:
 
         self.logger.info(f"{table_name}: 从 {next_year} 年开始")
 
-        # TODO: 调用Collector拉取该年数据
-        # count = self._call_collector(table_name, next_year)
-        count = 0  # 待实现
+        # 3. 获取Collector
+        collector = self._get_collector(table_name)
 
-        return count
+        if not collector:
+            self.logger.error(f"{table_name}: 未找到对应的Collector")
+            return 0
+
+        try:
+            # 调用Collector拉取该年数据
+            if table_name == 'trade_calendar':
+                count = collector.run_year(int(next_year))
+            else:
+                count = collector.run(year=int(next_year))
+
+            self.logger.info(f"{table_name}: {next_year}年 拉取成功 ({count}条)")
+            return count
+
+        except Exception as e:
+            self.logger.error(f"{table_name}: {next_year}年 拉取失败: {e}")
+            raise
 
     def _fetch_special_ths_member_strategy(self, table_name: str) -> int:
         """
@@ -435,11 +507,96 @@ class DataFetcher:
         """
         self.logger.info(f"{table_name}: 特殊游标策略，遍历指数列表")
 
-        # TODO: 遍历ths_index_basic的所有指数代码
-        # 调用ths_member接口拉取成分股
-        count = 0  # 待实现
+        # 获取Collector
+        collector = self._get_collector(table_name)
 
-        return count
+        if not collector:
+            self.logger.error(f"{table_name}: 未找到对应的Collector")
+            return 0
+
+        try:
+            # ths_concept_member需要遍历ths_index_basic的所有指数代码
+            # 调用ths_member接口拉取成分股
+            count = collector.run()
+
+            self.logger.info(f"{table_name}: 拉取成功 ({count}条)")
+            return count
+
+        except Exception as e:
+            self.logger.error(f"{table_name}: 拉取失败: {e}")
+            raise
+
+    def _get_collector(self, table_name: str):
+        """
+        根据表名获取对应的Collector实例
+
+        Args:
+            table_name: 表名
+
+        Returns:
+            Collector实例
+        """
+        # Collector映射表
+        COLLECTOR_MAP = {
+            'stock_daily': 'DailyCollector',
+            'stock_daily_basic': 'StockDailyBasicCollector',
+            'stock_basic': 'StockBasicCollector',
+            'trade_calendar': 'TradeCalendarCollector',
+            'index_basic': 'IndexBasicCollector',
+            'index_daily': 'IndexDailyCollector',
+            'etf_basic': 'ETFBasicCollector',
+            'etf_daily': 'ETFDailyCollector',
+            'etf_adj_factor': 'ETFAdjFactorCollector',
+            'fina_indicator': 'FinaIndicatorCollector',
+            'income': 'IncomeCollector',
+            'balancesheet': 'BalancesheetCollector',
+            'cashflow': 'CashflowCollector',
+            'dividend': 'DividendCollector',
+            'express': 'ExpressCollector',
+            'express_brief': 'ExpressBriefCollector',
+            'ths_index_basic': 'THSIndexBasicCollector',
+            'ths_concept_member': 'THSConceptMemberCollector',
+            'ths_moneyflow': 'THSMoneyflowCollector',
+            'ths_concept_moneyflow': 'THSConceptMoneyflowCollector',
+            'ths_industry_moneyflow': 'THSIndustryMoneyflowCollector',
+            'ths_index_daily': 'THSIndexDailyCollector',
+            'hots_user': 'HotsUserCollector',
+            'hots_trader_detail': 'HotsTraderDetailCollector',
+        }
+
+        collector_class_name = COLLECTOR_MAP.get(table_name)
+
+        if not collector_class_name:
+            self.logger.warning(f"{table_name}: 未在映射表中找到Collector")
+            return None
+
+        # 动态导入Collector
+        try:
+            # 导入Collector模块
+            import importlib
+
+            # 根据类名确定模块名（小写）
+            module_name = collector_class_name.lower().replace('collector', '_collector')
+
+            # 导入模块
+            module = importlib.import_module(f'src.collectors.{module_name}')
+
+            # 获取类
+            collector_class = getattr(module, collector_class_name)
+
+            # 创建实例（需要db_path和api）
+            # 从config获取tushare配置，创建API实例
+            from src.core.tushare_api import TushareAPI
+            api = TushareAPI(self.config['tushare'])
+
+            # 创建Collector实例
+            collector = collector_class(self.db_path, api)
+
+            return collector
+
+        except Exception as e:
+            self.logger.error(f"{table_name}: 导入Collector失败: {e}")
+            return None
 
     def _filter_trade_dates(self, start_date: str, end_date: str) -> List[str]:
         """
@@ -488,11 +645,11 @@ class DataFetcher:
         """
 
         try:
-            conn = duckdb.connect(self.db_path, read_only=True)
-            result = conn.execute(query, (date_formatted,)).fetchone()
-            conn.close()
+            from src.core.database import Database
+            db = Database(self.db_path)
+            result = db.execute(query, (date_formatted,))
 
-            return result[0] > 0
+            return result[0][0] > 0
 
         except Exception as e:
             self.logger.warning(f"{table_name}: 数据存在性检查失败: {e}")

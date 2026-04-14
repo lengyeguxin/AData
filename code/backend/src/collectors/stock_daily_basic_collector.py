@@ -4,7 +4,7 @@ StockDailyBasicCollector - 每日估值指标拉取器
 严格按照CSV文档：
 - 接口名称：daily_basic
 - 接口参数：trade_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=60
+- 文档地址：https://tushare.pro/document/2?doc_id=32
 - 游标策略：daily_trade（按交易日记录）
 """
 

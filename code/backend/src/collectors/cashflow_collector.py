@@ -4,7 +4,7 @@ CashflowCollector - 现金流量表拉取器（VIP接口）
 严格按照CSV文档：
 - 接口名称：cashflow_vip（VIP接口）
 - 接口参数：ann_date={游标+1}、report_type=1
-- 文档地址：https://tushare.pro/document/2?doc_id=38
+- 文档地址：https://tushare.pro/document/2?doc_id=44
 - 游标策略：daily_natural（按自然日记录）
 - VIP接口特性：更丰富字段、更快更新速度
 """

@@ -4,7 +4,7 @@ WeeklyCollector - 周线行情拉取器
 严格按照CSV文档：
 - 接口名称：stk_week_month_adj（VIP接口）
 - 接口参数：ts_code={股票代码}, start_date={游标+1}, end_date={计算周五}, freq=week
-- 文档地址：https://tushare.pro/document/2?doc_id=158
+- 文档地址：https://tushare.pro/document/2?doc_id=365
 - 游标策略：daily_trade（按交易日记录）
 - VIP接口特性：周线、月线数据
 """

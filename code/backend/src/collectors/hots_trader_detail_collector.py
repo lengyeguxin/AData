@@ -2,9 +2,9 @@
 HotsTraderDetailCollector - 游资交易明细拉取器
 
 严格按照CSV文档：
-- 接口名称：hots_trader_detail（龙虎榜交易明细）
+- 接口名称：hm_detail
 - 接口参数：trade_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=164
+- 文档地址：https://tushare.pro/document/2?doc_id=312
 - 游标策略：daily_trade（按交易日记录）
 """
 
@@ -33,7 +33,7 @@ class HotsTraderDetailCollector(BaseCollector):
             db_path=db_path,
             api=api,
             table_name='hots_trader_detail',
-            api_name='hots_trader_detail',  # 严格按照CSV文档
+            api_name='hm_detail',  # 实际接口名（修正）
             date_field='trade_date',
             vip_interface=False  # 标准接口
         )
@@ -47,9 +47,6 @@ class HotsTraderDetailCollector(BaseCollector):
 
         Returns:
             游资交易明细数据列表
-
-        示例：
-            collect_by_date('20260409') → 拉取2026-04-09游资交易明细
         """
         self.logger.info(f"拉取游资交易明细: trade_date={trade_date}")
 
@@ -57,6 +54,34 @@ class HotsTraderDetailCollector(BaseCollector):
         data = self.collect(trade_date=trade_date)
 
         return data
+
+    def save(self, data: List[Dict]) -> int:
+        """
+        保存数据（过滤account为None的记录）
+
+        Args:
+            data: 数据列表
+
+        Returns:
+            保存的记录数
+
+        注意：
+            - account是主键且NOT NULL，不能为NULL
+            - 过滤掉account为None的记录
+        """
+        # 过滤account为None的数据
+        filtered_data = [
+            item for item in data
+            if item.get('account') is not None
+        ]
+
+        if len(filtered_data) < len(data):
+            self.logger.warning(
+                f"过滤了{len(data) - len(filtered_data)}条account为NULL的记录"
+            )
+
+        # 调用父类save方法
+        return super().save(filtered_data)
 
     def _extract_values(self, item: Dict) -> tuple:
         """

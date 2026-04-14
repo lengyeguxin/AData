@@ -194,11 +194,15 @@
 
 ### 6. etf_index（ETF基准指数）
 
-**接口名称：** `etf_index`
+**接口名称：** `etf_index`（实际接口名，已修正）
 
 **游标策略：** `none`
 
-**拉取参数：** 无参数
+**拉取参数：** 无参数（全量拉取）
+
+**文档地址：** https://tushare.pro/document/2?doc_id=386
+
+**注意事项：** 之前曾误用fund_index_basic接口名，现已修正为etf_index
 
 **字段列表：**
 | 字段名 | 类型 | 说明 |
@@ -586,17 +590,25 @@
 
 ### 26. hots_user（游资账户）
 
-**接口名称：** 待确认
+**接口名称：** `hm_list`（实际接口名，不是hots_user）
 
 **游标策略：** `none`
+
+**接口参数：** 无参数（全量拉取）
+
+**文档地址：** https://tushare.pro/document/2?doc_id=311
 
 ---
 
 ### 27. hots_trader_detail（游资明细）
 
-**接口名称：** 待确认
+**接口名称：** `hm_detail`（实际接口名，不是hots_trader_detail）
 
 **游标策略：** `daily_trade`
+
+**接口参数：** `trade_date={游标+1}`（按交易日拉取）
+
+**文档地址：** https://tushare.pro/document/2?doc_id=312
 
 ---
 

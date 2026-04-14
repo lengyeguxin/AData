@@ -4,7 +4,7 @@ IndexDailyCollector - 指数日线行情拉取器
 严格按照CSV文档：
 - 接口名称：index_daily
 - 接口参数：trade_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=174
+- 文档地址：https://tushare.pro/document/2?doc_id=95
 - 游标策略：daily_trade（按交易日记录）
 """
 

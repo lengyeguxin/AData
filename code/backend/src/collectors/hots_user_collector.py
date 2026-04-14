@@ -2,9 +2,9 @@
 HotsUserCollector - 游资账户拉取器
 
 严格按照CSV文档：
-- 接口名称：hots_user
+- 接口名称：hm_list
 - 接口参数：无参数
-- 文档地址：https://tushare.pro/document/2?doc_id=272
+- 文档地址：https://tushare.pro/document/2?doc_id=311
 - 游标策略：none（无游标，全量拉取）
 """
 
@@ -33,7 +33,7 @@ class HotsUserCollector(BaseCollector):
             db_path=db_path,
             api=api,
             table_name='hots_user',
-            api_name='hots_user',  # 严格按照CSV文档
+            api_name='hm_list',  # 实际接口名（修正）
             date_field=None,  # 无日期字段
             vip_interface=False  # 标准接口
         )
@@ -56,6 +56,34 @@ class HotsUserCollector(BaseCollector):
         self.logger.info(f"拉取完成: 共{len(data)}条游资账户数据")
         return data
 
+    def save(self, data: List[Dict]) -> int:
+        """
+        保存数据（过滤account为None的记录）
+
+        Args:
+            data: 数据列表
+
+        Returns:
+            保存的记录数
+
+        注意：
+            - account是主键且NOT NULL，不能为NULL
+            - 过滤掉account为None的记录
+        """
+        # 过滤account为None的数据
+        filtered_data = [
+            item for item in data
+            if item.get('account') is not None
+        ]
+
+        if len(filtered_data) < len(data):
+            self.logger.warning(
+                f"过滤了{len(data) - len(filtered_data)}条account为NULL的记录"
+            )
+
+        # 调用父类save方法
+        return super().save(filtered_data)
+
     def _extract_values(self, item: Dict) -> tuple:
         """
         提取字段值（严格按照p2_schema.sql定义，完整6个字段）
@@ -77,13 +105,14 @@ class HotsUserCollector(BaseCollector):
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理，完整6个字段）
+        构建INSERT语句（ON CONFLICT处理）
+
+        注意：
+            - broker_name字段有索引(idx_hots_user_broker)，ON CONFLICT时不更新
+            - account是PRIMARY KEY，ON CONFLICT时也不更新
 
         Returns:
             INSERT SQL语句
-
-        注意：
-            - 主键：account（VARCHAR(50) PRIMARY KEY）
         """
         return """
             INSERT INTO hots_user (
@@ -92,7 +121,6 @@ class HotsUserCollector(BaseCollector):
             ON CONFLICT (account)
             DO UPDATE SET
                 trader_name = excluded.trader_name,
-                broker_name = excluded.broker_name,
                 license = excluded.license,
                 reg_date = excluded.reg_date,
                 status = excluded.status,

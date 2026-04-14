@@ -9,7 +9,7 @@ database:
 # Tushare API配置
 tushare:
   token: YOUR_TUSHARE_TOKEN_HERE  # 请替换为您的Tushare Token
-  api_url: http://lianghua.nanyangqiankun.top  # Tushare代理API地址
+  api_url: http://8.136.22.187:8010/  # Tushare代理API地址（推荐使用新代理）
   rate_limit: 500  # 每分钟500次（1万积分）
 
 # 数据拉取配置

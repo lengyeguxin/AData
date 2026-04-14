@@ -4,7 +4,7 @@ IndexBasicCollector - 指数列表拉取器
 严格按照CSV文档：
 - 接口名称：index_basic
 - 接口参数：market=SSE/SZSE（分两次拉取）
-- 文档地址：https://tushare.pro/document/2?doc_id=173
+- 文档地址：https://tushare.pro/document/2?doc_id=94
 - 游标策略：none（无游标，全量拉取）
 """
 

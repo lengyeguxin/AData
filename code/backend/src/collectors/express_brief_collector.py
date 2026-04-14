@@ -4,6 +4,7 @@ ExpressBriefCollector - 业绩快报拉取器（VIP接口）
 严格按照CSV文档：
 - 接口名称：express_vip（VIP接口）
 - 接口参数：ann_date={游标+1}、report_type=1
+- 文档地址：https://tushare.pro/document/2?doc_id=46
 - 游标策略：daily_natural（按自然日记录）
 """
 
@@ -25,6 +26,19 @@ class ExpressBriefCollector(BaseCollector):
             db_path=db_path, api=api, table_name='express_brief',
             api_name='express_vip', date_field='ann_date', vip_interface=True
         )
+
+    def collect_by_date(self, ann_date: str) -> List[Dict]:
+        """
+        按公告日期拉取数据
+
+        Args:
+            ann_date: 公告日期（YYYYMMDD格式）
+
+        Returns:
+            数据列表
+        """
+        self.logger.info(f"拉取业绩快报: ann_date={ann_date}")
+        return self.collect(ann_date=ann_date)
 
     def _extract_values(self, item: Dict) -> tuple:
         """提取30个字段"""
@@ -62,14 +76,15 @@ class ExpressBriefCollector(BaseCollector):
         )
 
     def _build_insert_query(self) -> str:
-        """INSERT语句（30字段，移除ann_date更新）"""
+        """INSERT语句（30字段，ON CONFLICT使用三字段主键）"""
         fields = """ts_code, ann_date, end_date, report_type, comp_type, end_type, update_flag,
             total_revenue, revenue, operate_profit, total_profit, n_income, n_income_attr_p,
             basic_eps, diluted_eps, n_income_cut,
             yoy_sales, yoy_dedu_np, yoy_eps, yoy_op, yoy_tp, yoy_np, yoy_np_cut,
             qoq_sales, qoq_dedu_np, qoq_eps, qoq_op, qoq_tp, qoq_np, qoq_np_cut, updated_at"""
         placeholders = ', '.join(['?'] * 30) + ', NOW()'
-        updates = """end_type = excluded.end_type, update_flag = excluded.update_flag,
+        updates = """report_type = excluded.report_type, comp_type = excluded.comp_type,
+            end_type = excluded.end_type, update_flag = excluded.update_flag,
             total_revenue = excluded.total_revenue, revenue = excluded.revenue,
             operate_profit = excluded.operate_profit, total_profit = excluded.total_profit,
             n_income = excluded.n_income, n_income_attr_p = excluded.n_income_attr_p,
@@ -84,5 +99,5 @@ class ExpressBriefCollector(BaseCollector):
 
         return f"""
             INSERT INTO express_brief ({fields}) VALUES ({placeholders})
-            ON CONFLICT (ts_code, end_date, report_type) DO UPDATE SET {updates}
+            ON CONFLICT (ts_code, ann_date, end_date) DO UPDATE SET {updates}
         """

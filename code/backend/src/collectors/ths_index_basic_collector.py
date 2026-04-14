@@ -74,32 +74,37 @@ class THSIndexBasicCollector(BaseCollector):
         return (
             item.get('ts_code'),        # ts_code
             item.get('name'),           # name
+            item.get('fullname'),       # fullname
             item.get('exchange'),       # exchange
             item.get('type'),           # type
             convert_date_format(item.get('list_date')),  # list_date
             item.get('weight_rule'),    # weight_rule
-            item.get('desc'),           # desc
+            item.get('description'),    # description（不是desc）
         )
 
     def _build_insert_query(self) -> str:
         """
         构建INSERT语句（ON CONFLICT处理）
 
+        注意：
+            - type字段有索引，ON CONFLICT时不更新（避免约束错误）
+            - ts_code是PRIMARY KEY，ON CONFLICT时也不更新
+
         Returns:
             INSERT SQL语句
         """
         return """
             INSERT INTO ths_index_basic (
-                ts_code, name, exchange, type, list_date, weight_rule, desc, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                ts_code, name, fullname, exchange, type, list_date, weight_rule, description, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON CONFLICT (ts_code)
             DO UPDATE SET
                 name = excluded.name,
+                fullname = excluded.fullname,
                 exchange = excluded.exchange,
-                type = excluded.type,
                 list_date = excluded.list_date,
                 weight_rule = excluded.weight_rule,
-                desc = excluded.desc,
+                description = excluded.description,
                 updated_at = NOW()
         """
 

@@ -2,9 +2,9 @@
 ETFIndexCollector - ETF基准指数拉取器
 
 严格按照CSV文档：
-- 接口名称：fund_index_basic
+- 接口名称：etf_index
 - 接口参数：无参数
-- 文档地址：https://tushare.pro/document/2?doc_id=115
+- 文档地址：https://tushare.pro/document/2?doc_id=386
 - 游标策略：none（无游标，全量拉取）
 """
 
@@ -33,7 +33,7 @@ class ETFIndexCollector(BaseCollector):
             db_path=db_path,
             api=api,
             table_name='etf_index',
-            api_name='fund_index_basic',  # 严格按照CSV文档
+            api_name='etf_index',  # 实际接口名（修正）
             date_field=None,  # 无日期字段
             vip_interface=False  # 标准接口
         )
@@ -57,7 +57,7 @@ class ETFIndexCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p0_schema.sql定义）
+        提取字段值（严格按照表结构定义）
 
         Args:
             item: API返回的单条数据
@@ -66,30 +66,35 @@ class ETFIndexCollector(BaseCollector):
             字段值元组
         """
         return (
+            item.get('ts_code'),        # ts_code（主键）
             item.get('index_code'),     # index_code
             item.get('index_name'),     # index_name
-            convert_date_format(item.get('publish_date')),  # publish_date
-            item.get('index_type'),     # index_type
-            item.get('market'),         # market
+            item.get('tracking_type'),  # tracking_type
+            item.get('tracking_ratio'), # tracking_ratio
+            item.get('invest_type'),    # invest_type
         )
 
     def _build_insert_query(self) -> str:
         """
         构建INSERT语句（ON CONFLICT处理）
 
+        注意：
+            - index_code字段有索引(idx_etf_index_index_code)，ON CONFLICT时不更新
+            - ts_code是PRIMARY KEY，ON CONFLICT时也不更新
+
         Returns:
             INSERT SQL语句
         """
         return """
             INSERT INTO etf_index (
-                index_code, index_name, publish_date, index_type, market, updated_at
-            ) VALUES (?, ?, ?, ?, ?, NOW())
-            ON CONFLICT (index_code)
+                ts_code, index_code, index_name, tracking_type, tracking_ratio, invest_type, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+            ON CONFLICT (ts_code)
             DO UPDATE SET
                 index_name = excluded.index_name,
-                publish_date = excluded.publish_date,
-                index_type = excluded.index_type,
-                market = excluded.market,
+                tracking_type = excluded.tracking_type,
+                tracking_ratio = excluded.tracking_ratio,
+                invest_type = excluded.invest_type,
                 updated_at = NOW()
         """
 
