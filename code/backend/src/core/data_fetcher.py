@@ -252,27 +252,44 @@ class DataFetcher:
                 self.cursor_manager.mark_failed(table_name, "未知的游标策略")
                 return
 
-            # 5. 判断是否更新游标
-            has_data = record_count > 0
-            should_update = self.cursor_manager.should_update_cursor(table_name, has_data)
-
-            if should_update:
-                # 计算新的游标值
-                new_cursor_value = self._calculate_new_cursor_value(
-                    table_name, cursor_strategy
-                )
-                self.cursor_manager.update_cursor(table_name, new_cursor_value, record_count)
+            # 5. 更新游标状态（按批次拉取的策略已内部更新游标值）
+            # DAILY_TRADE和DAILY_NATURAL策略：每批次已更新游标，只需标记success
+            # 其他策略：需要一次性更新游标
+            if cursor_strategy in [GlobalCursorManager.CURSOR_STRATEGY_DAILY_TRADE,
+                                   GlobalCursorManager.CURSOR_STRATEGY_DAILY_NATURAL]:
+                # 按批次拉取的策略已内部更新游标，只需标记为success
+                # 获取当前游标值（已由策略方法更新）
+                cursor = self.cursor_manager.get_cursor(table_name)
                 self.logger.info(
-                    f"{table_name}: 拉取成功，游标更新为 {new_cursor_value}"
-                    f"({record_count}条记录)"
+                    f"{table_name}: 拉取完成，游标已更新为 {cursor['cursor_value']}"
+                    f"(共{record_count}条记录)"
+                )
+                # mark_success会自动设置status=success（游标值已在策略中更新）
+                self.cursor_manager.update_cursor(
+                    table_name, cursor['cursor_value'], record_count
                 )
             else:
-                # 不更新游标（无数据且不允许无数据更新）
-                self.logger.warning(
-                    f"{table_name}: 拉取完成但无数据，游标不更新"
-                )
-                # 标记为失败（需要在Dashboard展示）
-                self.cursor_manager.mark_failed(table_name, "无数据（行情表必须有数据）")
+                # NONE/YEARLY/SPECIAL策略：需要一次性更新游标
+                has_data = record_count > 0
+                should_update = self.cursor_manager.should_update_cursor(table_name, has_data)
+
+                if should_update:
+                    # 计算新的游标值
+                    new_cursor_value = self._calculate_new_cursor_value(
+                        table_name, cursor_strategy
+                    )
+                    self.cursor_manager.update_cursor(table_name, new_cursor_value, record_count)
+                    self.logger.info(
+                        f"{table_name}: 拉取成功，游标更新为 {new_cursor_value}"
+                        f"({record_count}条记录)"
+                    )
+                else:
+                    # 不更新游标（无数据且不允许无数据更新）
+                    self.logger.warning(
+                        f"{table_name}: 拉取完成但无数据，游标不更新"
+                    )
+                    # 标记为失败（需要在Dashboard展示）
+                    self.cursor_manager.mark_failed(table_name, "无数据（行情表必须有数据）")
 
         except Exception as e:
             self.logger.error(f"{table_name}: 拉取失败: {e}")
@@ -360,14 +377,9 @@ class DataFetcher:
             self.logger.error(f"{table_name}: 未找到对应的Collector")
             return 0
 
-        # 5. 遍历交易日拉取
+        # 5. 遍历交易日拉取，每拉取成功一个立即更新游标
         total_count = 0
         for trade_date in trade_dates:
-            # 检查数据是否已存在（避免重复爬取）
-            if self._data_exists(table_name, trade_date):
-                self.logger.info(f"{table_name}: {trade_date} 数据已存在，跳过")
-                continue
-
             try:
                 # 调用Collector拉取该日期数据
                 count = collector.run(trade_date=trade_date)
@@ -377,9 +389,14 @@ class DataFetcher:
                 if count > 0:
                     self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
 
+                # 每拉取成功一个批次，立即更新游标到该日期
+                self.cursor_manager.update_cursor(table_name, trade_date, count)
+                self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
+
             except Exception as e:
                 self.logger.error(f"{table_name}: {trade_date} 拉取失败: {e}")
-                # 继续拉取下一个日期
+                # 拉取失败，不更新游标，下次从失败日期重新开始
+                # 继续拉取下一个日期（允许部分失败）
                 continue
 
         return total_count
@@ -411,19 +428,13 @@ class DataFetcher:
             self.logger.error(f"{table_name}: 未找到对应的Collector")
             return 0
 
-        # 4. 遍历自然日拉取
+        # 4. 遍历自然日拉取，每拉取成功一个立即更新游标
         total_count = 0
         current_date = datetime.strptime(start_date, '%Y%m%d')
         end_datetime = datetime.strptime(end_date, '%Y%m%d')
 
         while current_date <= end_datetime:
             date_str = current_date.strftime('%Y%m%d')
-
-            # 检查数据是否已存在
-            if self._data_exists(table_name, date_str):
-                self.logger.info(f"{table_name}: {date_str} 数据已存在，跳过")
-                current_date += timedelta(days=1)
-                continue
 
             try:
                 # 调用Collector拉取该日期数据
@@ -441,10 +452,14 @@ class DataFetcher:
                     # 财务表允许无数据（ann_date可能无数据）
                     self.logger.info(f"{table_name}: {date_str} 无数据（正常）")
 
+                # 每拉取成功一个批次，立即更新游标到该日期（财务表允许无数据更新）
+                self.cursor_manager.update_cursor(table_name, date_str, count)
+                self.logger.info(f"{table_name}: 游标更新为 {date_str}")
+
             except Exception as e:
                 self.logger.error(f"{table_name}: {date_str} 拉取失败: {e}")
-                current_date += timedelta(days=1)
-                continue
+                # 拉取失败，不更新游标，下次从失败日期重新开始
+                # 继续拉取下一个日期（允许部分失败）
 
             current_date += timedelta(days=1)
 
@@ -692,7 +707,10 @@ class DataFetcher:
 
     def _calculate_new_cursor_value(self, table_name: str, cursor_strategy: str) -> str:
         """
-        计算新的游标值
+        计算新的游标值（仅用于NONE/YEARLY/SPECIAL策略）
+
+        注意：DAILY_TRADE和DAILY_NATURAL策略已在策略方法内部按批次更新游标，
+        不使用此方法。
 
         Args:
             table_name: 表名
@@ -701,15 +719,7 @@ class DataFetcher:
         Returns:
             新的游标值
         """
-        if cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_DAILY_TRADE:
-            # 使用结束日期（18点判断后的日期）
-            return self.cursor_manager.get_end_date_with_time_check(table_name)
-
-        elif cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_DAILY_NATURAL:
-            # 使用今天日期
-            return datetime.now().strftime('%Y%m%d')
-
-        elif cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_YEARLY:
+        if cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_YEARLY:
             # 使用当前年份
             return str(datetime.now().year)
 
@@ -717,6 +727,8 @@ class DataFetcher:
             # 无游标，标记为completed
             return 'completed'
 
+        # DAILY_TRADE和DAILY_NATURAL不应使用此方法
+        # 如果被调用，返回空字符串（不会发生）
         return ''
 
     def stop(self):
