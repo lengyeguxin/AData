@@ -53,18 +53,21 @@ def load_config(config_path: str) -> dict:
 
 
 def initialize_database(db_path: str) -> Database:
-    """初始化数据库（创建表结构）"""
+    """初始化数据库（创建完整表结构）"""
     logger.info(f"初始化数据库: {db_path}")
 
     db = Database(db_path)
 
-    # 检查数据库是否已有表结构
+    # 检查数据库是否有完整的表结构（28张表）
     result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
-    tables = [row[0] for row in result]
+    existing_tables = [row[0] for row in result]
 
-    if len(tables) == 0:
-        # 数据库为空，需要初始化Schema
-        logger.info("数据库为空，开始初始化Schema...")
+    # 期望的28张表（global_cursor + 27张数据表）
+    expected_table_count = 28
+
+    if len(existing_tables) < expected_table_count:
+        # 数据库表不完整，需要创建缺失的表
+        logger.info(f"数据库现有{len(existing_tables)}张表，需要初始化完整Schema（期望{expected_table_count}张表）")
 
         schema_dir = project_root / 'database' / 'schemas'
         schema_files = sorted(schema_dir.glob('*_schema.sql'))
@@ -75,12 +78,23 @@ def initialize_database(db_path: str) -> Database:
             logger.info(f"执行: {schema_file.name}")
             with open(schema_file, 'r', encoding='utf-8') as f:
                 schema_sql = f.read()
-            db.execute(schema_sql)
+            try:
+                db.execute(schema_sql)
+            except Exception as e:
+                # 如果表已存在，跳过（DuckDB CREATE TABLE IF NOT EXISTS）
+                if "Table with name" in str(e) and "already exists" in str(e):
+                    logger.info(f"  表已存在，跳过: {schema_file.name}")
+                else:
+                    logger.error(f"  Schema执行失败: {e}")
+                    raise
 
-        logger.info("✓ Schema初始化完成（28张表）")
+        # 验证表数量
+        result2 = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
+        final_tables = [row[0] for row in result2]
+        logger.info(f"✓ Schema初始化完成（{len(final_tables)}张表）")
 
     else:
-        logger.info(f"数据库已有{len(tables)}张表，跳过Schema初始化")
+        logger.info(f"数据库已有完整Schema（{len(existing_tables)}张表），跳过初始化")
 
     return db
 
