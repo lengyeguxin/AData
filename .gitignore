@@ -50,3 +50,7 @@ build/
 
 # 开发辅助脚本（不是运行时必需）
 scripts/
+
+# 测试工具生成的临时文件
+generated/
+docs/field_mapping_analysis.json
