@@ -447,7 +447,7 @@ tables:
     dependencies: []                         # 前置表依赖：无
     fetch_after_time: "09:00"                # 截止时间判断：09:00
     primary_key: [account]
-    api_name: hots_user                      # 接口名称：hots_user
+    api_name: hm_list                        # 接口名称：hm_list
     api_params: {}                           # 接口参数：无参数
     cursor_field: null                       # 游标字段：无
     cursor_example: "completed"              # 游标示例：completed表示已完成
@@ -461,7 +461,7 @@ tables:
     dependencies: []                         # 前置表依赖：无
     fetch_after_time: "18:00"                # 截止时间判断：18:00
     primary_key: [account, ts_code, trade_date]
-    api_name: hots_trader_detail             # 接口名称：hots_trader_detail
+    api_name: hm_detail                      # 接口名称：hm_detail
     api_params:                              # 接口参数
       trade_date: "{游标+1}"
     cursor_field: trade_date                 # 游标字段：trade_date
