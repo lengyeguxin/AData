@@ -1,0 +1,16 @@
+[
+  {
+    "ts_code": "000001.SZ",
+    "ann_date": "20260409",
+    "end_date": "20260331",
+    "type": "类型1",
+    "p_change_min": 751.56,
+    "p_change_max": 740.42,
+    "net_profit_min": 184.28,
+    "net_profit_max": 374.94,
+    "last_parent_net": 517.79,
+    "first_ann_date": "20260409",
+    "summary": "test",
+    "change_reason": "test"
+  }
+]

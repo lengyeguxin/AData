@@ -1,0 +1,25 @@
+[
+  {
+    "ts_code": "000001.SZ",
+    "trade_date": "20260409",
+    "end_date": "20260331",
+    "freq": "test",
+    "open": 359.07,
+    "high": 495.36,
+    "low": 31.08,
+    "close": 493.4,
+    "pre_close": 314.24,
+    "open_qfq": 440.75,
+    "high_qfq": 813.62,
+    "low_qfq": 889.62,
+    "close_qfq": 201.28,
+    "open_hfq": 319.79,
+    "high_hfq": 929.8,
+    "low_hfq": 765.32,
+    "close_hfq": 88.17,
+    "vol": 662.11,
+    "amount": 193.02,
+    "change": 449.59,
+    "pct_chg": 105.15
+  }
+]

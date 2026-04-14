@@ -1,0 +1,22 @@
+[
+  {
+    "ts_code": "000001.SZ",
+    "trade_date": "20260409",
+    "close": 483.87,
+    "turnover_rate": 636.43,
+    "turnover_rate_f": 20.41,
+    "volume_ratio": 713.37,
+    "pe": 949.14,
+    "pe_ttm": 546.93,
+    "pb": 421.31,
+    "ps": 20.77,
+    "ps_ttm": 47.86,
+    "dv_ratio": 543.83,
+    "dv_ttm": 294.74,
+    "total_share": 24.86,
+    "float_share": 489.76,
+    "free_share": 930.11,
+    "total_mv": 912.74,
+    "circ_mv": 527.57
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "trade_date": "20260409",
+    "ts_code": "000001.SZ",
+    "ts_name": "测试名称",
+    "buy_amount": 572.01,
+    "sell_amount": 709.55,
+    "net_amount": 773.95,
+    "hm_name": "测试名称",
+    "hm_orgs": "test",
+    "tag": "test"
+  }
+]

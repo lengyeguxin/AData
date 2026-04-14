@@ -1,0 +1,18 @@
+[
+  {
+    "ts_code": "000001.SZ",
+    "csname": "测试名称",
+    "extname": "测试名称",
+    "cname": "测试名称",
+    "index_code": "000001",
+    "index_name": "测试名称",
+    "setup_date": "20260409",
+    "list_date": "20260409",
+    "list_status": "正常",
+    "exchange": "SSE",
+    "mgr_name": "测试名称",
+    "custod_name": "测试名称",
+    "mgt_fee": 54.36,
+    "etf_type": "类型1"
+  }
+]
