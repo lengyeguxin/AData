@@ -53,9 +53,35 @@ def load_config(config_path: str) -> dict:
 
 
 def initialize_database(db_path: str) -> Database:
-    """初始化数据库"""
+    """初始化数据库（创建表结构）"""
     logger.info(f"初始化数据库: {db_path}")
+
     db = Database(db_path)
+
+    # 检查数据库是否已有表结构
+    result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
+    tables = [row[0] for row in result]
+
+    if len(tables) == 0:
+        # 数据库为空，需要初始化Schema
+        logger.info("数据库为空，开始初始化Schema...")
+
+        schema_dir = project_root / 'database' / 'schemas'
+        schema_files = sorted(schema_dir.glob('*_schema.sql'))
+
+        logger.info(f"找到{len(schema_files)}个Schema文件")
+
+        for schema_file in schema_files:
+            logger.info(f"执行: {schema_file.name}")
+            with open(schema_file, 'r', encoding='utf-8') as f:
+                schema_sql = f.read()
+            db.execute(schema_sql)
+
+        logger.info("✓ Schema初始化完成（28张表）")
+
+    else:
+        logger.info(f"数据库已有{len(tables)}张表，跳过Schema初始化")
+
     return db
 
 
