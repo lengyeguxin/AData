@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS trade_calendar (
 );
 
 -- 复合主键
-ALTER TABLE trade_calendar ADD PRIMARY KEY (exchange, cal_date);
 
 
 -- 索引

@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS ths_index_daily (
 );
 
 -- 复合主键
-ALTER TABLE ths_index_daily ADD PRIMARY KEY (ts_code, trade_date);
 
 
 -- 索引

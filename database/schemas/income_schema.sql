@@ -102,7 +102,6 @@ CREATE TABLE IF NOT EXISTS income (
 );
 
 -- 复合主键
-ALTER TABLE income ADD PRIMARY KEY (ts_code, end_date, report_type);
 
 
 -- 索引

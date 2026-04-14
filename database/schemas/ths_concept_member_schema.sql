@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS ths_concept_member (
 );
 
 -- 复合主键
-ALTER TABLE ths_concept_member ADD PRIMARY KEY (ts_code, con_code);
 
 
 -- 索引

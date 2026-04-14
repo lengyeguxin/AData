@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS express (
 );
 
 -- 复合主键
-ALTER TABLE express ADD PRIMARY KEY (ts_code, end_date, ann_date);
 
 
 -- 索引

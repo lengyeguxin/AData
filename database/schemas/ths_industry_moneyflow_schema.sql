@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS ths_industry_moneyflow (
 );
 
 -- 复合主键
-ALTER TABLE ths_industry_moneyflow ADD PRIMARY KEY (ts_code, trade_date);
 
 
 -- 索引

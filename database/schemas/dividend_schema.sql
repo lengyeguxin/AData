@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS dividend (
 );
 
 -- 复合主键
-ALTER TABLE dividend ADD PRIMARY KEY (ts_code, end_date, ann_date);
 
 
 -- 索引

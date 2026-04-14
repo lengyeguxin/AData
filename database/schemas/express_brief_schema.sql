@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS express_brief (
 );
 
 -- 复合主键
-ALTER TABLE express_brief ADD PRIMARY KEY (ts_code, end_date, ann_date);
 
 
 -- 索引

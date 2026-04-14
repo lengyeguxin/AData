@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS etf_daily (
 );
 
 -- 复合主键
-ALTER TABLE etf_daily ADD PRIMARY KEY (ts_code, trade_date);
 
 
 -- 索引

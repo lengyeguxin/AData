@@ -166,7 +166,6 @@ CREATE TABLE IF NOT EXISTS balancesheet (
 );
 
 -- 复合主键
-ALTER TABLE balancesheet ADD PRIMARY KEY (ts_code, end_date, report_type);
 
 
 -- 索引

@@ -175,7 +175,6 @@ CREATE TABLE IF NOT EXISTS fina_indicator (
 );
 
 -- 复合主键
-ALTER TABLE fina_indicator ADD PRIMARY KEY (ts_code, end_date);
 
 
 -- 索引

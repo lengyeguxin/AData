@@ -105,7 +105,6 @@ CREATE TABLE IF NOT EXISTS cashflow (
 );
 
 -- 复合主键
-ALTER TABLE cashflow ADD PRIMARY KEY (ts_code, end_date, report_type);
 
 
 -- 索引

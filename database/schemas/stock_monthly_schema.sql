@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS stock_monthly (
 );
 
 -- 复合主键
-ALTER TABLE stock_monthly ADD PRIMARY KEY (ts_code, trade_date);
 
 
 -- 索引

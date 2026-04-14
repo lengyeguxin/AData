@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS etf_adj_factor (
 );
 
 -- 复合主键
-ALTER TABLE etf_adj_factor ADD PRIMARY KEY (ts_code, trade_date);
 
 
 -- 索引

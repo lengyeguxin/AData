@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS hots_trader_detail (
 );
 
 -- 复合主键
-ALTER TABLE hots_trader_detail ADD PRIMARY KEY (account, ts_code, trade_date);
 
 
 -- 索引
