@@ -37,7 +37,7 @@ def test_collector_init():
     collector = HotsUserCollector(db_path, api)
 
     assert collector.table_name == "hots_user"
-    assert collector.api_name == "hots_user"
+    assert collector.api_name == "hm_list"
 
     print(f"✅ HotsUserCollector初始化测试通过")
 

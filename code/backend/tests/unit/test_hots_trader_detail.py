@@ -37,7 +37,7 @@ def test_collector_init():
     collector = HotsTraderDetailCollector(db_path, api)
 
     assert collector.table_name == "hots_trader_detail"
-    assert collector.api_name == "hots_trader_detail"
+    assert collector.api_name == "hm_detail"
 
     print(f"✅ HotsTraderDetailCollector初始化测试通过")
 

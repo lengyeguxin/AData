@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / 'code' / 'ba
 from typing import Dict, List, Tuple
 from src.collectors.base_collector import BaseCollector
 from src.core.tushare_api import TushareAPI
+from src.core.transformers import convert_date_format
 
 
 class StockBasicCollector(BaseCollector):
