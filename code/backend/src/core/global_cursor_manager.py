@@ -51,6 +51,9 @@ class GlobalCursorManager:
         # 加载配置
         self.config = self._load_config()
 
+        # 加载table_config（__init__中加载，确保总是可用）
+        self.table_config = self._load_table_config()
+
     def initialize(self):
         """
         初始化游标表（创建global_cursor表和索引）
@@ -98,7 +101,6 @@ class GlobalCursorManager:
         except Exception as e:
             self.logger.error(f"游标表初始化失败: {e}")
             return False
-        self.table_config = self._load_table_config()
 
     def _load_config(self) -> Dict:
         """加载主配置文件"""
@@ -382,29 +384,103 @@ class GlobalCursorManager:
         self.logger.info(f"Cursor updated successfully for {table_name}")
 
     def mark_running(self, table_name: str):
-        """标记为正在拉取"""
-        query = """
-            UPDATE global_cursor
-            SET status = ?, updated_at = NOW()
+        """标记为正在拉取（DuckDB兼容：DELETE + INSERT）"""
+        # DuckDB UPDATE PRIMARY KEY有BUG，使用DELETE + INSERT方式
+        query_get = """
+            SELECT cursor_strategy, cursor_value, dependencies, fetch_after_time,
+                   last_fetch_time, last_record_count, created_at
+            FROM global_cursor
             WHERE table_name = ?
         """
 
-        # 使用Database类统一管理连接
+        query_delete = "DELETE FROM global_cursor WHERE table_name = ?"
+
+        query_insert = """
+            INSERT INTO global_cursor (
+                table_name, cursor_strategy, cursor_value, dependencies,
+                fetch_after_time, last_fetch_time, last_record_count,
+                status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        """
+
         db = Database(self.db_path)
-        db.execute(query, (self.STATUS_RUNNING, table_name))
+
+        # 1. 获取原始记录信息
+        result = db.execute(query_get, (table_name,))
+        if not result:
+            self.logger.error(f"No cursor found for {table_name}")
+            db.close()
+            return
+
+        row = result[0]
+        cursor_strategy = row[0]
+        cursor_value = row[1]
+        dependencies = row[2]
+        fetch_after_time = row[3]
+        last_fetch_time = row[4]
+        last_record_count = row[5]
+        created_at = row[6]
+
+        # 2. 删除旧记录
+        db.execute(query_delete, (table_name,))
+
+        # 3. 插入新记录（更新status为running）
+        db.execute(query_insert, (
+            table_name, cursor_strategy, cursor_value, dependencies,
+            fetch_after_time, last_fetch_time, last_record_count,
+            self.STATUS_RUNNING, created_at
+        ))
+
         db.close()
 
     def mark_failed(self, table_name: str, error_message: str = ""):
-        """标记为失败"""
-        query = """
-            UPDATE global_cursor
-            SET status = ?, updated_at = NOW()
+        """标记为失败（DuckDB兼容：DELETE + INSERT）"""
+        # DuckDB UPDATE PRIMARY KEY有BUG，使用DELETE + INSERT方式
+        query_get = """
+            SELECT cursor_strategy, cursor_value, dependencies, fetch_after_time,
+                   last_fetch_time, last_record_count, created_at
+            FROM global_cursor
             WHERE table_name = ?
         """
 
-        # 使用Database类统一管理连接
+        query_delete = "DELETE FROM global_cursor WHERE table_name = ?"
+
+        query_insert = """
+            INSERT INTO global_cursor (
+                table_name, cursor_strategy, cursor_value, dependencies,
+                fetch_after_time, last_fetch_time, last_record_count,
+                status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        """
+
         db = Database(self.db_path)
-        db.execute(query, (self.STATUS_FAILED, table_name))
+
+        # 1. 获取原始记录信息
+        result = db.execute(query_get, (table_name,))
+        if not result:
+            self.logger.error(f"No cursor found for {table_name}")
+            db.close()
+            return
+
+        row = result[0]
+        cursor_strategy = row[0]
+        cursor_value = row[1]
+        dependencies = row[2]
+        fetch_after_time = row[3]
+        last_fetch_time = row[4]
+        last_record_count = row[5]
+        created_at = row[6]
+
+        # 2. 删除旧记录
+        db.execute(query_delete, (table_name,))
+
+        # 3. 插入新记录（更新status为failed）
+        db.execute(query_insert, (
+            table_name, cursor_strategy, cursor_value, dependencies,
+            fetch_after_time, last_fetch_time, last_record_count,
+            self.STATUS_FAILED, created_at
+        ))
+
         db.close()
 
     def should_update_cursor(self, table_name: str, has_data: bool) -> bool:

@@ -107,14 +107,10 @@ class DataFetcher:
         self.logger.info(f"启动时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         self.logger.info(f"数据库路径: {self.db_path}")
         self.logger.info(f"交易日历已加载: {len(self.trade_calendar)}个交易日")
-        self.logger.info()
+        self.logger.info("")
 
-        # 按优先级顺序拉取
+        # 按优先级顺序拉取所有表
         self._fetch_all_tables()
-
-        self.logger.info("=" * 80)
-        self.logger.info("数据拉取控制器完成")
-        self.logger.info("=" * 80)
 
     def _load_trade_calendar(self) -> List[str]:
         """
@@ -161,7 +157,7 @@ class DataFetcher:
 
             self._fetch_table(table_name)
 
-        self.logger.info()
+        self.logger.info("")
 
         # P1行情表
         self.logger.info("拉取P1行情表...")
@@ -172,7 +168,7 @@ class DataFetcher:
 
             self._fetch_table(table_name)
 
-        self.logger.info()
+        self.logger.info("")
 
         # P2财务表
         self.logger.info("拉取P2财务表...")
@@ -183,7 +179,7 @@ class DataFetcher:
 
             self._fetch_table(table_name)
 
-        self.logger.info()
+        self.logger.info("")
 
         # P3其他表
         self.logger.info("拉取P3其他表...")
@@ -194,7 +190,7 @@ class DataFetcher:
 
             self._fetch_table(table_name)
 
-        self.logger.info()
+        self.logger.info("")
 
         # P4游资表
         self.logger.info("拉取P4游资表...")
@@ -575,8 +571,13 @@ class DataFetcher:
             # 导入Collector模块
             import importlib
 
-            # 根据类名确定模块名（小写）
-            module_name = collector_class_name.lower().replace('collector', '_collector')
+            # 根据类名确定模块名（驼峰转下划线）
+            # 例如: TradeCalendarCollector → trade_calendar_collector
+            import re
+            # 先移除'Collector'后缀
+            name_without_collector = collector_class_name.replace('Collector', '')
+            # 驼峰转下划线
+            module_name = re.sub('([a-z0A-Z])([A-Z])', r'\1_\2', name_without_collector).lower() + '_collector'
 
             # 导入模块
             module = importlib.import_module(f'src.collectors.{module_name}')
