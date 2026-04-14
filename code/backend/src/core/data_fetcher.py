@@ -571,13 +571,20 @@ class DataFetcher:
             # 导入Collector模块
             import importlib
 
-            # 根据类名确定模块名（驼峰转下划线）
+            # 根据类名确定模块名（驼峰转下划线，处理缩写）
             # 例如: TradeCalendarCollector → trade_calendar_collector
+            # 例如: THSIndexBasicCollector → ths_index_basic_collector
+            # 例如: ETFBasicCollector → etf_basic_collector
             import re
             # 先移除'Collector'后缀
             name_without_collector = collector_class_name.replace('Collector', '')
-            # 驼峰转下划线
-            module_name = re.sub('([a-z0A-Z])([A-Z])', r'\1_\2', name_without_collector).lower() + '_collector'
+            # 特殊处理：先替换全大写缩写（THS→ths, ETF→etf）
+            # 然后驼峰转下划线（Index→index_basic）
+            # Step 1: 全大写缩写转小写
+            name_with_abbrevs = re.sub('([A-Z]+)([A-Z][a-z])', r'\1_\2', name_without_collector)
+            # Step 2: 驼峰转下划线（剩余的驼峰部分）
+            name_snake = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name_with_abbrevs).lower()
+            module_name = name_snake + '_collector'
 
             # 导入模块
             module = importlib.import_module(f'src.collectors.{module_name}')
