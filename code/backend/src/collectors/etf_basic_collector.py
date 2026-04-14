@@ -58,80 +58,55 @@ class ETFBasicCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p0_schema.sql定义，完整17个字段）
+        提取字段值（严格按照etf_basic_schema.sql定义，完整14个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组（17个字段）
+            字段值元组（14个字段，严格按照schema定义顺序）
         """
         return (
-            # 基础字段
             item.get('ts_code'),
-            item.get('name'),
-            item.get('fullname'),
-            item.get('fund_type'),
-            item.get('fund_manager'),
-
-            # 日期字段
+            item.get('csname'),
+            item.get('extname'),
+            item.get('cname'),
+            item.get('index_code'),
+            item.get('index_name'),
+            convert_date_format(item.get('setup_date')),
             convert_date_format(item.get('list_date')),
-            convert_date_format(item.get('issue_date')),
-            convert_date_format(item.get('delist_date')),
-
-            # 数值字段
-            item.get('issue_amount'),
-            item.get('m_fee'),
-            item.get('c_fee'),
-
-            # 文本字段
-            item.get('benchmark'),
-            item.get('status'),
-            item.get('invest_type'),
-            item.get('type'),
-            item.get('trustee'),
-            item.get('perf_benchmark'),
+            item.get('list_status'),
+            item.get('exchange'),
+            item.get('mgr_name'),
+            item.get('custod_name'),
+            item.get('mgt_fee'),
+            item.get('etf_type'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理，完整17个字段）
-
-        注意：
-            - fund_type字段有索引，ON CONFLICT时不更新（避免约束错误）
-            - ts_code是PRIMARY KEY，ON CONFLICT时也不更新
+        构建INSERT语句（ON CONFLICT处理，完整14个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO etf_basic (
-                ts_code, name, fullname, fund_type, fund_manager,
-                list_date, issue_date, delist_date, issue_amount,
-                m_fee, c_fee, benchmark, status, invest_type, type, trustee, perf_benchmark,
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, csname, extname, cname, index_code, index_name, setup_date, list_date, list_status, exchange, mgr_name, custod_name, mgt_fee, etf_type, updated_at"
+
+        placeholders = ', '.join(['?'] * 14) + ', NOW()'
+
+        update_fields = "csname = excluded.csname, extname = excluded.extname, cname = excluded.cname, index_code = excluded.index_code, index_name = excluded.index_name, setup_date = excluded.setup_date, list_date = excluded.list_date, list_status = excluded.list_status, exchange = excluded.exchange, mgr_name = excluded.mgr_name, custod_name = excluded.custod_name, mgt_fee = excluded.mgt_fee, etf_type = excluded.etf_type, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO etf_basic (ts_code, csname, extname, cname, index_code, index_name, setup_date, list_date, list_status, exchange, mgr_name, custod_name, mgt_fee, etf_type, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code)
-            DO UPDATE SET
-                name = excluded.name,
-                fullname = excluded.fullname,
-                fund_manager = excluded.fund_manager,
-                list_date = excluded.list_date,
-                issue_date = excluded.issue_date,
-                delist_date = excluded.delist_date,
-                issue_amount = excluded.issue_amount,
-                m_fee = excluded.m_fee,
-                c_fee = excluded.c_fee,
-                benchmark = excluded.benchmark,
-                status = excluded.status,
-                invest_type = excluded.invest_type,
-                type = excluded.type,
-                trustee = excluded.trustee,
-                perf_benchmark = excluded.perf_benchmark,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run(self) -> int:
+
+def run(self) -> int:
         """
         拉取并保存所有ETF基本信息
 

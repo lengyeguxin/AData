@@ -44,17 +44,17 @@ class THSMoneyflowCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值
+        提取字段值（严格按照ths_moneyflow_schema.sql定义，完整13个字段）
 
         Args:
-            item: 单条数据
+            item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（13个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),
             convert_date_format(item.get('trade_date')),
+            item.get('ts_code'),
             item.get('name'),
             item.get('pct_change'),
             item.get('latest'),
@@ -65,40 +65,33 @@ class THSMoneyflowCollector(BaseCollector):
             item.get('buy_md_amount'),
             item.get('buy_md_amount_rate'),
             item.get('buy_sm_amount'),
-            item.get('buy_sm_amount_rate')
+            item.get('buy_sm_amount_rate'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句
+        构建INSERT语句（ON CONFLICT处理，完整13个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO ths_moneyflow (
-                ts_code, trade_date, name, pct_change, latest,
-                net_amount, net_d5_amount, buy_lg_amount, buy_lg_amount_rate,
-                buy_md_amount, buy_md_amount_rate, buy_sm_amount, buy_sm_amount_rate,
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "trade_date, ts_code, name, pct_change, latest, net_amount, net_d5_amount, buy_lg_amount, buy_lg_amount_rate, buy_md_amount, buy_md_amount_rate, buy_sm_amount, buy_sm_amount_rate, updated_at"
+
+        placeholders = ', '.join(['?'] * 13) + ', NOW()'
+
+        update_fields = "name = excluded.name, pct_change = excluded.pct_change, latest = excluded.latest, net_amount = excluded.net_amount, net_d5_amount = excluded.net_d5_amount, buy_lg_amount = excluded.buy_lg_amount, buy_lg_amount_rate = excluded.buy_lg_amount_rate, buy_md_amount = excluded.buy_md_amount, buy_md_amount_rate = excluded.buy_md_amount_rate, buy_sm_amount = excluded.buy_sm_amount, buy_sm_amount_rate = excluded.buy_sm_amount_rate, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO ths_moneyflow (trade_date, ts_code, name, pct_change, latest, net_amount, net_d5_amount, buy_lg_amount, buy_lg_amount_rate, buy_md_amount, buy_md_amount_rate, buy_sm_amount, buy_sm_amount_rate, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code, trade_date)
-            DO UPDATE SET
-                name = excluded.name,
-                pct_change = excluded.pct_change,
-                latest = excluded.latest,
-                net_amount = excluded.net_amount,
-                net_d5_amount = excluded.net_d5_amount,
-                buy_lg_amount = excluded.buy_lg_amount,
-                buy_lg_amount_rate = excluded.buy_lg_amount_rate,
-                buy_md_amount = excluded.buy_md_amount,
-                buy_md_amount_rate = excluded.buy_md_amount_rate,
-                buy_sm_amount = excluded.buy_sm_amount,
-                buy_sm_amount_rate = excluded.buy_sm_amount_rate,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run_by_date(self, trade_date: str) -> int:
+
+def run_by_date(self, trade_date: str) -> int:
         """
         按交易日拉取并保存
 

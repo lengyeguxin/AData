@@ -44,17 +44,17 @@ class THSConceptMoneyflowCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值
+        提取字段值（严格按照ths_concept_moneyflow_schema.sql定义，完整12个字段）
 
         Args:
-            item: 单条数据
+            item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（12个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),
             convert_date_format(item.get('trade_date')),
+            item.get('ts_code'),
             item.get('name'),
             item.get('lead_stock'),
             item.get('close_price'),
@@ -64,38 +64,33 @@ class THSConceptMoneyflowCollector(BaseCollector):
             item.get('pct_change_stock'),
             item.get('net_buy_amount'),
             item.get('net_sell_amount'),
-            item.get('net_amount')
+            item.get('net_amount'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句
+        构建INSERT语句（ON CONFLICT处理，完整12个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO ths_concept_moneyflow (
-                ts_code, trade_date, name, lead_stock, close_price,
-                pct_change, industry_index, company_num, pct_change_stock,
-                net_buy_amount, net_sell_amount, net_amount, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "trade_date, ts_code, name, lead_stock, close_price, pct_change, industry_index, company_num, pct_change_stock, net_buy_amount, net_sell_amount, net_amount, updated_at"
+
+        placeholders = ', '.join(['?'] * 12) + ', NOW()'
+
+        update_fields = "name = excluded.name, lead_stock = excluded.lead_stock, close_price = excluded.close_price, pct_change = excluded.pct_change, industry_index = excluded.industry_index, company_num = excluded.company_num, pct_change_stock = excluded.pct_change_stock, net_buy_amount = excluded.net_buy_amount, net_sell_amount = excluded.net_sell_amount, net_amount = excluded.net_amount, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO ths_concept_moneyflow (trade_date, ts_code, name, lead_stock, close_price, pct_change, industry_index, company_num, pct_change_stock, net_buy_amount, net_sell_amount, net_amount, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code, trade_date)
-            DO UPDATE SET
-                name = excluded.name,
-                lead_stock = excluded.lead_stock,
-                close_price = excluded.close_price,
-                pct_change = excluded.pct_change,
-                industry_index = excluded.industry_index,
-                company_num = excluded.company_num,
-                pct_change_stock = excluded.pct_change_stock,
-                net_buy_amount = excluded.net_buy_amount,
-                net_sell_amount = excluded.net_sell_amount,
-                net_amount = excluded.net_amount,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run_by_date(self, trade_date: str) -> int:
+
+def run_by_date(self, trade_date: str) -> int:
         """
         按交易日拉取并保存
 

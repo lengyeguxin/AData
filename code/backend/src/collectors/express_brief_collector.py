@@ -41,63 +41,73 @@ class ExpressBriefCollector(BaseCollector):
         return self.collect(ann_date=ann_date)
 
     def _extract_values(self, item: Dict) -> tuple:
-        """提取30个字段"""
+        """
+        提取字段值（严格按照express_brief_schema.sql定义，完整32个字段）
+
+        Args:
+            item: API返回的单条数据
+
+        Returns:
+            字段值元组（32个字段，严格按照schema定义顺序）
+        """
         return (
             item.get('ts_code'),
             convert_date_format(item.get('ann_date')),
             convert_date_format(item.get('end_date')),
-            item.get('report_type'),
-            item.get('comp_type'),
-            item.get('end_type'),
-            item.get('update_flag'),
-            item.get('total_revenue'),
             item.get('revenue'),
             item.get('operate_profit'),
             item.get('total_profit'),
             item.get('n_income'),
-            item.get('n_income_attr_p'),
-            item.get('basic_eps'),
+            item.get('total_assets'),
+            item.get('total_hldr_eqy_exc_min_int'),
             item.get('diluted_eps'),
-            item.get('n_income_cut'),
+            item.get('diluted_roe'),
+            item.get('yoy_net_profit'),
+            item.get('bps'),
             item.get('yoy_sales'),
-            item.get('yoy_dedu_np'),
-            item.get('yoy_eps'),
             item.get('yoy_op'),
             item.get('yoy_tp'),
-            item.get('yoy_np'),
-            item.get('yoy_np_cut'),
-            item.get('qoq_sales'),
-            item.get('qoq_dedu_np'),
-            item.get('qoq_eps'),
-            item.get('qoq_op'),
-            item.get('qoq_tp'),
-            item.get('qoq_np'),
-            item.get('qoq_np_cut'),
+            item.get('yoy_dedu_np'),
+            item.get('yoy_eps'),
+            item.get('yoy_roe'),
+            item.get('growth_assets'),
+            item.get('yoy_equity'),
+            item.get('growth_bps'),
+            item.get('or_last_year'),
+            item.get('op_last_year'),
+            item.get('tp_last_year'),
+            item.get('np_last_year'),
+            item.get('eps_last_year'),
+            item.get('open_net_assets'),
+            item.get('open_bps'),
+            item.get('perf_summary'),
+            item.get('is_audit'),
+            item.get('remark'),
         )
 
+
     def _build_insert_query(self) -> str:
-        """INSERT语句（30字段，ON CONFLICT使用三字段主键）"""
-        fields = """ts_code, ann_date, end_date, report_type, comp_type, end_type, update_flag,
-            total_revenue, revenue, operate_profit, total_profit, n_income, n_income_attr_p,
-            basic_eps, diluted_eps, n_income_cut,
-            yoy_sales, yoy_dedu_np, yoy_eps, yoy_op, yoy_tp, yoy_np, yoy_np_cut,
-            qoq_sales, qoq_dedu_np, qoq_eps, qoq_op, qoq_tp, qoq_np, qoq_np_cut, updated_at"""
-        placeholders = ', '.join(['?'] * 30) + ', NOW()'
-        updates = """report_type = excluded.report_type, comp_type = excluded.comp_type,
-            end_type = excluded.end_type, update_flag = excluded.update_flag,
-            total_revenue = excluded.total_revenue, revenue = excluded.revenue,
-            operate_profit = excluded.operate_profit, total_profit = excluded.total_profit,
-            n_income = excluded.n_income, n_income_attr_p = excluded.n_income_attr_p,
-            basic_eps = excluded.basic_eps, diluted_eps = excluded.diluted_eps,
-            n_income_cut = excluded.n_income_cut,
-            yoy_sales = excluded.yoy_sales, yoy_dedu_np = excluded.yoy_dedu_np,
-            yoy_eps = excluded.yoy_eps, yoy_op = excluded.yoy_op, yoy_tp = excluded.yoy_tp,
-            yoy_np = excluded.yoy_np, yoy_np_cut = excluded.yoy_np_cut,
-            qoq_sales = excluded.qoq_sales, qoq_dedu_np = excluded.qoq_dedu_np,
-            qoq_eps = excluded.qoq_eps, qoq_op = excluded.qoq_op, qoq_tp = excluded.qoq_tp,
-            qoq_np = excluded.qoq_np, qoq_np_cut = excluded.qoq_np_cut, updated_at = NOW()"""
+        """
+        构建INSERT语句（ON CONFLICT处理，完整32个字段）
+
+        Returns:
+            INSERT SQL语句
+
+        注意：
+            - DuckDB不允许在ON CONFLICT中更新ann_date字段（有约束限制）
+            - 主键：PRIMARY KEY (ts_code, end_date, ann_date)
+        """
+        fields = "ts_code, ann_date, end_date, revenue, operate_profit, total_profit, n_income, total_assets, total_hldr_eqy_exc_min_int, diluted_eps, diluted_roe, yoy_net_profit, bps, yoy_sales, yoy_op, yoy_tp, yoy_dedu_np, yoy_eps, yoy_roe, growth_assets, yoy_equity, growth_bps, or_last_year, op_last_year, tp_last_year, np_last_year, eps_last_year, open_net_assets, open_bps, perf_summary, is_audit, remark, updated_at"
+
+        placeholders = ', '.join(['?'] * 32) + ', NOW()'
+
+        update_fields = "revenue = excluded.revenue, operate_profit = excluded.operate_profit, total_profit = excluded.total_profit, n_income = excluded.n_income, total_assets = excluded.total_assets, total_hldr_eqy_exc_min_int = excluded.total_hldr_eqy_exc_min_int, diluted_eps = excluded.diluted_eps, diluted_roe = excluded.diluted_roe, yoy_net_profit = excluded.yoy_net_profit, bps = excluded.bps, yoy_sales = excluded.yoy_sales, yoy_op = excluded.yoy_op, yoy_tp = excluded.yoy_tp, yoy_dedu_np = excluded.yoy_dedu_np, yoy_eps = excluded.yoy_eps, yoy_roe = excluded.yoy_roe, growth_assets = excluded.growth_assets, yoy_equity = excluded.yoy_equity, growth_bps = excluded.growth_bps, or_last_year = excluded.or_last_year, op_last_year = excluded.op_last_year, tp_last_year = excluded.tp_last_year, np_last_year = excluded.np_last_year, eps_last_year = excluded.eps_last_year, open_net_assets = excluded.open_net_assets, open_bps = excluded.open_bps, perf_summary = excluded.perf_summary, is_audit = excluded.is_audit, remark = excluded.remark, updated_at = NOW()"
 
         return f"""
-            INSERT INTO express_brief ({fields}) VALUES ({placeholders})
-            ON CONFLICT (ts_code, ann_date, end_date) DO UPDATE SET {updates}
+            INSERT INTO express_brief (ts_code, ann_date, end_date, revenue, operate_profit, total_profit, n_income, total_assets, total_hldr_eqy_exc_min_int, diluted_eps, diluted_roe, yoy_net_profit, bps, yoy_sales, yoy_op, yoy_tp, yoy_dedu_np, yoy_eps, yoy_roe, growth_assets, yoy_equity, growth_bps, or_last_year, op_last_year, tp_last_year, np_last_year, eps_last_year, open_net_assets, open_bps, perf_summary, is_audit, remark, updated_at)
+            VALUES ({placeholders})
+            ON CONFLICT (ts_code, end_date, ann_date)
+            DO UPDATE SET {update_fields}
         """
+
+

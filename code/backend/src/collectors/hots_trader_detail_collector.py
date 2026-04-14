@@ -85,52 +85,50 @@ class HotsTraderDetailCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p2_schema.sql定义）
+        提取字段值（严格按照hots_trader_detail_schema.sql定义，完整9个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组（字段顺序：account, ts_code, trade_date, buy_amount, sell_amount, net_amount, buy_vol, sell_vol, net_vol, reason）
+            字段值元组（9个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('account'),        # account（游资账户）
-            item.get('ts_code'),        # ts_code（股票代码）
-            convert_date_format(item.get('trade_date')),  # trade_date
-            item.get('buy_amount'),     # buy_amount（买入金额）
-            item.get('sell_amount'),    # sell_amount（卖出金额）
-            item.get('net_amount'),     # net_amount（净金额）
-            item.get('buy_vol'),        # buy_vol（买入量）
-            item.get('sell_vol'),       # sell_vol（卖出量）
-            item.get('net_vol'),        # net_vol（净量）
-            item.get('reason'),         # reason（买卖原因）
+            convert_date_format(item.get('trade_date')),
+            item.get('ts_code'),
+            item.get('ts_name'),
+            item.get('buy_amount'),
+            item.get('sell_amount'),
+            item.get('net_amount'),
+            item.get('hm_name'),
+            item.get('hm_orgs'),
+            item.get('tag'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理）
+        构建INSERT语句（ON CONFLICT处理，完整9个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO hots_trader_detail (
-                account, ts_code, trade_date, buy_amount, sell_amount, net_amount,
-                buy_vol, sell_vol, net_vol, reason, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "trade_date, ts_code, ts_name, buy_amount, sell_amount, net_amount, hm_name, hm_orgs, tag, updated_at"
+
+        placeholders = ', '.join(['?'] * 9) + ', NOW()'
+
+        update_fields = "ts_name = excluded.ts_name, buy_amount = excluded.buy_amount, sell_amount = excluded.sell_amount, net_amount = excluded.net_amount, hm_name = excluded.hm_name, hm_orgs = excluded.hm_orgs, tag = excluded.tag, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO hots_trader_detail (trade_date, ts_code, ts_name, buy_amount, sell_amount, net_amount, hm_name, hm_orgs, tag, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (account, ts_code, trade_date)
-            DO UPDATE SET
-                buy_amount = excluded.buy_amount,
-                sell_amount = excluded.sell_amount,
-                net_amount = excluded.net_amount,
-                buy_vol = excluded.buy_vol,
-                sell_vol = excluded.sell_vol,
-                net_vol = excluded.net_vol,
-                reason = excluded.reason,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run_by_date(self, trade_date: str) -> int:
+
+def run_by_date(self, trade_date: str) -> int:
         """
         拉取并保存指定交易日数据
 

@@ -57,48 +57,49 @@ class ETFIndexCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照表结构定义）
+        提取字段值（严格按照etf_index_schema.sql定义，完整8个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（8个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),        # ts_code（主键）
-            item.get('index_code'),     # index_code
-            item.get('index_name'),     # index_name
-            item.get('tracking_type'),  # tracking_type
-            item.get('tracking_ratio'), # tracking_ratio
-            item.get('invest_type'),    # invest_type
+            item.get('ts_code'),
+            item.get('indx_name'),
+            item.get('indx_csname'),
+            item.get('pub_party_name'),
+            convert_date_format(item.get('pub_date')),
+            convert_date_format(item.get('base_date')),
+            item.get('bp'),
+            item.get('adj_circle'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理）
-
-        注意：
-            - index_code字段有索引(idx_etf_index_index_code)，ON CONFLICT时不更新
-            - ts_code是PRIMARY KEY，ON CONFLICT时也不更新
+        构建INSERT语句（ON CONFLICT处理，完整8个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO etf_index (
-                ts_code, index_code, index_name, tracking_type, tracking_ratio, invest_type, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, indx_name, indx_csname, pub_party_name, pub_date, base_date, bp, adj_circle, updated_at"
+
+        placeholders = ', '.join(['?'] * 8) + ', NOW()'
+
+        update_fields = "indx_name = excluded.indx_name, indx_csname = excluded.indx_csname, pub_party_name = excluded.pub_party_name, pub_date = excluded.pub_date, base_date = excluded.base_date, bp = excluded.bp, adj_circle = excluded.adj_circle, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO etf_index (ts_code, indx_name, indx_csname, pub_party_name, pub_date, base_date, bp, adj_circle, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code)
-            DO UPDATE SET
-                index_name = excluded.index_name,
-                tracking_type = excluded.tracking_type,
-                tracking_ratio = excluded.tracking_ratio,
-                invest_type = excluded.invest_type,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run(self) -> int:
+
+def run(self) -> int:
         """
         拉取并保存所有ETF基准指数信息
 

@@ -93,54 +93,52 @@ class IndexDailyCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p1_schema.sql定义）
+        提取字段值（严格按照index_daily_schema.sql定义，完整11个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组（字段顺序：ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount）
+            字段值元组（11个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),        # ts_code
-            convert_date_format(item.get('trade_date')),  # trade_date
-            item.get('pre_close'),      # pre_close（新增）
-            item.get('open'),           # open
-            item.get('high'),           # high
-            item.get('low'),            # low
-            item.get('close'),          # close
-            item.get('change'),         # change（新增）
-            item.get('pct_chg'),        # pct_chg
-            item.get('vol'),            # vol
-            item.get('amount'),         # amount
+            item.get('ts_code'),
+            convert_date_format(item.get('trade_date')),
+            item.get('close'),
+            item.get('open'),
+            item.get('high'),
+            item.get('low'),
+            item.get('pre_close'),
+            item.get('change'),
+            item.get('pct_chg'),
+            item.get('vol'),
+            item.get('amount'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理）
+        构建INSERT语句（ON CONFLICT处理，完整11个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO index_daily (
-                ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, trade_date, close, open, high, low, pre_close, change, pct_chg, vol, amount, updated_at"
+
+        placeholders = ', '.join(['?'] * 11) + ', NOW()'
+
+        update_fields = "close = excluded.close, open = excluded.open, high = excluded.high, low = excluded.low, pre_close = excluded.pre_close, change = excluded.change, pct_chg = excluded.pct_chg, vol = excluded.vol, amount = excluded.amount, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO index_daily (ts_code, trade_date, close, open, high, low, pre_close, change, pct_chg, vol, amount, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code, trade_date)
-            DO UPDATE SET
-                pre_close = excluded.pre_close,
-                open = excluded.open,
-                high = excluded.high,
-                low = excluded.low,
-                close = excluded.close,
-                change = excluded.change,
-                pct_chg = excluded.pct_chg,
-                vol = excluded.vol,
-                amount = excluded.amount,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run_by_date(self, trade_date: str) -> int:
+
+def run_by_date(self, trade_date: str) -> int:
         """
         拉取并保存指定交易日数据
 

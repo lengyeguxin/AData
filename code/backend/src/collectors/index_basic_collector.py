@@ -63,59 +63,53 @@ class IndexBasicCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p0_schema.sql定义）
+        提取字段值（严格按照index_basic_schema.sql定义，完整12个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（12个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),        # ts_code
-            item.get('name'),           # name
-            item.get('fullname'),       # fullname
-            item.get('market'),         # market
-            item.get('publisher'),      # publisher
-            item.get('index_type'),     # index_type
-            item.get('category'),       # category
-            convert_date_format(item.get('base_date')),  # base_date
-            item.get('base_point'),     # base_point
-            convert_date_format(item.get('list_date')),  # list_date
-            item.get('weight_rule'),    # weight_rule
-            item.get('description'),    # description
+            item.get('ts_code'),
+            item.get('name'),
+            item.get('fullname'),
+            item.get('market'),
+            item.get('publisher'),
+            item.get('index_type'),
+            item.get('category'),
+            convert_date_format(item.get('base_date')),
+            item.get('base_point'),
+            convert_date_format(item.get('list_date')),
+            item.get('weight_rule'),
+            convert_date_format(item.get('exp_date')),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理）
+        构建INSERT语句（ON CONFLICT处理，完整12个字段）
 
         Returns:
             INSERT SQL语句
 
-        注意：DuckDB不允许在ON CONFLICT DO UPDATE SET中更新market字段
         """
-        return """
-            INSERT INTO index_basic (
-                ts_code, name, fullname, market, publisher, index_type, category,
-                base_date, base_point, list_date, weight_rule, description, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, name, fullname, market, publisher, index_type, category, base_date, base_point, list_date, weight_rule, exp_date, updated_at"
+
+        placeholders = ', '.join(['?'] * 12) + ', NOW()'
+
+        update_fields = "name = excluded.name, fullname = excluded.fullname, market = excluded.market, publisher = excluded.publisher, index_type = excluded.index_type, category = excluded.category, base_date = excluded.base_date, base_point = excluded.base_point, list_date = excluded.list_date, weight_rule = excluded.weight_rule, exp_date = excluded.exp_date, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO index_basic (ts_code, name, fullname, market, publisher, index_type, category, base_date, base_point, list_date, weight_rule, exp_date, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code)
-            DO UPDATE SET
-                name = excluded.name,
-                fullname = excluded.fullname,
-                publisher = excluded.publisher,
-                index_type = excluded.index_type,
-                category = excluded.category,
-                base_date = excluded.base_date,
-                base_point = excluded.base_point,
-                list_date = excluded.list_date,
-                weight_rule = excluded.weight_rule,
-                description = excluded.description,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run(self) -> int:
+
+def run(self) -> int:
         """
         拉取并保存所有指数列表
 

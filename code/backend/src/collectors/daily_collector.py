@@ -63,70 +63,52 @@ class DailyCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p1_schema.sql定义）
+        提取字段值（严格按照stock_daily_schema.sql定义，完整11个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组（字段顺序：ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount, adj_factor, open_adj, high_adj, low_adj, close_adj, is_suspended, is_abnormal）
+            字段值元组（11个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),        # ts_code
-            convert_date_format(item.get('trade_date')),  # trade_date
-            item.get('pre_close'),      # pre_close（昨收价）
-            item.get('open'),           # open
-            item.get('high'),           # high
-            item.get('low'),            # low
-            item.get('close'),          # close
-            item.get('change'),         # change（涨跌额）
-            item.get('pct_chg'),        # pct_chg
-            item.get('vol'),            # vol
-            item.get('amount'),         # amount
-            None,                       # adj_factor（后续由复权因子填充）
-            None,                       # open_adj（后续计算）
-            None,                       # high_adj（后续计算）
-            None,                       # low_adj（后续计算）
-            None,                       # close_adj（后续计算）
-            False,                      # is_suspended（默认False）
-            False,                      # is_abnormal（默认False）
+            item.get('ts_code'),
+            convert_date_format(item.get('trade_date')),
+            item.get('open'),
+            item.get('high'),
+            item.get('low'),
+            item.get('close'),
+            item.get('pre_close'),
+            item.get('change'),
+            item.get('pct_chg'),
+            item.get('vol'),
+            item.get('amount'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理）
+        构建INSERT语句（ON CONFLICT处理，完整11个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO stock_daily (
-                ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount,
-                adj_factor, open_adj, high_adj, low_adj, close_adj,
-                is_suspended, is_abnormal, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, trade_date, open, high, low, close, pre_close, change, pct_chg, vol, amount, updated_at"
+
+        placeholders = ', '.join(['?'] * 11) + ', NOW()'
+
+        update_fields = "open = excluded.open, high = excluded.high, low = excluded.low, close = excluded.close, pre_close = excluded.pre_close, change = excluded.change, pct_chg = excluded.pct_chg, vol = excluded.vol, amount = excluded.amount, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO stock_daily (ts_code, trade_date, open, high, low, close, pre_close, change, pct_chg, vol, amount, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code, trade_date)
-            DO UPDATE SET
-                pre_close = excluded.pre_close,
-                open = excluded.open,
-                high = excluded.high,
-                low = excluded.low,
-                close = excluded.close,
-                change = excluded.change,
-                pct_chg = excluded.pct_chg,
-                vol = excluded.vol,
-                amount = excluded.amount,
-                adj_factor = excluded.adj_factor,
-                open_adj = excluded.open_adj,
-                high_adj = excluded.high_adj,
-                low_adj = excluded.low_adj,
-                close_adj = excluded.close_adj,
-                is_suspended = excluded.is_suspended,
-                is_abnormal = excluded.is_abnormal,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run_by_date(self, trade_date: str) -> int:
+
+def run_by_date(self, trade_date: str) -> int:
         """
         拉取并保存指定交易日数据
 

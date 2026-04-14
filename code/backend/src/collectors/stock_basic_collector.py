@@ -39,45 +39,54 @@ class StockBasicCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p0_schema.sql定义）
+        提取字段值（严格按照stock_basic_schema.sql定义，完整17个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（17个字段，严格按照schema定义顺序）
         """
-        from core.transformers import convert_date_format
-
         return (
-            item.get('ts_code'),        # ts_code
-            item.get('name'),           # name
-            item.get('industry'),       # industry
-            item.get('market'),         # market
-            convert_date_format(item.get('list_date')),  # list_date
-            convert_date_format(item.get('delist_date')), # delist_date
-            item.get('is_hs'),          # is_hs
+            item.get('ts_code'),
+            item.get('symbol'),
+            item.get('name'),
+            item.get('area'),
+            item.get('industry'),
+            item.get('fullname'),
+            item.get('enname'),
+            item.get('cnspell'),
+            item.get('market'),
+            item.get('exchange'),
+            item.get('curr_type'),
+            item.get('list_status'),
+            convert_date_format(item.get('list_date')),
+            convert_date_format(item.get('delist_date')),
+            item.get('is_hs'),
+            item.get('act_name'),
+            item.get('act_ent_type'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理）
+        构建INSERT语句（ON CONFLICT处理，完整17个字段）
 
         Returns:
             INSERT SQL语句
 
-        注意：DuckDB不允许在ON CONFLICT DO UPDATE SET中更新market字段
         """
-        return """
-            INSERT INTO stock_basic (
-                ts_code, name, industry, market, list_date, delist_date, is_hs, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, symbol, name, area, industry, fullname, enname, cnspell, market, exchange, curr_type, list_status, list_date, delist_date, is_hs, act_name, act_ent_type, updated_at"
+
+        placeholders = ', '.join(['?'] * 17) + ', NOW()'
+
+        update_fields = "symbol = excluded.symbol, name = excluded.name, area = excluded.area, industry = excluded.industry, fullname = excluded.fullname, enname = excluded.enname, cnspell = excluded.cnspell, market = excluded.market, exchange = excluded.exchange, curr_type = excluded.curr_type, list_status = excluded.list_status, list_date = excluded.list_date, delist_date = excluded.delist_date, is_hs = excluded.is_hs, act_name = excluded.act_name, act_ent_type = excluded.act_ent_type, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO stock_basic (ts_code, symbol, name, area, industry, fullname, enname, cnspell, market, exchange, curr_type, list_status, list_date, delist_date, is_hs, act_name, act_ent_type, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code)
-            DO UPDATE SET
-                name = excluded.name,
-                industry = excluded.industry,
-                list_date = excluded.list_date,
-                delist_date = excluded.delist_date,
-                is_hs = excluded.is_hs,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
+
+

@@ -81,45 +81,48 @@ class THSConceptMemberCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p2_schema.sql定义，完整5个字段）
+        提取字段值（严格按照ths_concept_member_schema.sql定义，完整7个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组（5个字段）
+            字段值元组（7个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),        # ts_code（概念代码）
-            item.get('con_code'),       # con_code（成分股代码）
-            convert_date_format(item.get('in_date')),   # in_date
-            convert_date_format(item.get('out_date')),  # out_date
-            item.get('is_new'),         # is_new
+            item.get('ts_code'),
+            item.get('con_code'),
+            item.get('con_name'),
+            item.get('weight'),
+            convert_date_format(item.get('in_date')),
+            convert_date_format(item.get('out_date')),
+            item.get('is_new'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理，完整5个字段）
+        构建INSERT语句（ON CONFLICT处理，完整7个字段）
 
         Returns:
             INSERT SQL语句
 
-        注意：
-            - 主键：(ts_code, con_code)
         """
-        return """
-            INSERT INTO ths_concept_member (
-                ts_code, con_code, in_date, out_date, is_new, updated_at
-            ) VALUES (?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, con_code, con_name, weight, in_date, out_date, is_new, updated_at"
+
+        placeholders = ', '.join(['?'] * 7) + ', NOW()'
+
+        update_fields = "con_name = excluded.con_name, weight = excluded.weight, in_date = excluded.in_date, out_date = excluded.out_date, is_new = excluded.is_new, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO ths_concept_member (ts_code, con_code, con_name, weight, in_date, out_date, is_new, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code, con_code)
-            DO UPDATE SET
-                in_date = excluded.in_date,
-                out_date = excluded.out_date,
-                is_new = excluded.is_new,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run(self) -> int:
+
+def run(self) -> int:
         """
         遍历并保存所有概念板块成分股
 

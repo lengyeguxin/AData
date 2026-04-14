@@ -41,48 +41,53 @@ class ExpressCollector(BaseCollector):
         return self.collect(ann_date=ann_date)
 
     def _extract_values(self, item: Dict) -> tuple:
-        """提取20个字段"""
+        """
+        提取字段值（严格按照express_schema.sql定义，完整12个字段）
+
+        Args:
+            item: API返回的单条数据
+
+        Returns:
+            字段值元组（12个字段，严格按照schema定义顺序）
+        """
         return (
             item.get('ts_code'),
             convert_date_format(item.get('ann_date')),
             convert_date_format(item.get('end_date')),
-            item.get('report_type'),
-            item.get('comp_type'),
-            item.get('end_type'),
-            item.get('update_flag'),
             item.get('type'),
-            item.get('summary'),
-            item.get('n_income_min'),
-            item.get('n_income_max'),
-            item.get('n_income_min_last'),
-            item.get('n_income_max_last'),
             item.get('p_change_min'),
             item.get('p_change_max'),
-            item.get('p_change_min_last'),
-            item.get('p_change_max_last'),
-            item.get('n_income_last'),
-            item.get('p_change_last'),
+            item.get('net_profit_min'),
+            item.get('net_profit_max'),
+            item.get('last_parent_net'),
+            convert_date_format(item.get('first_ann_date')),
+            item.get('summary'),
             item.get('change_reason'),
         )
 
+
     def _build_insert_query(self) -> str:
-        """INSERT语句（20字段，ON CONFLICT使用三字段主键）"""
-        fields = """ts_code, ann_date, end_date, report_type, comp_type, end_type, update_flag,
-            type, summary, n_income_min, n_income_max, n_income_min_last, n_income_max_last,
-            p_change_min, p_change_max, p_change_min_last, p_change_max_last,
-            n_income_last, p_change_last, change_reason, updated_at"""
-        placeholders = ', '.join(['?'] * 20) + ', NOW()'
-        updates = """report_type = excluded.report_type, comp_type = excluded.comp_type,
-            end_type = excluded.end_type, update_flag = excluded.update_flag,
-            type = excluded.type, summary = excluded.summary,
-            n_income_min = excluded.n_income_min, n_income_max = excluded.n_income_max,
-            n_income_min_last = excluded.n_income_min_last, n_income_max_last = excluded.n_income_max_last,
-            p_change_min = excluded.p_change_min, p_change_max = excluded.p_change_max,
-            p_change_min_last = excluded.p_change_min_last, p_change_max_last = excluded.p_change_max_last,
-            n_income_last = excluded.n_income_last, p_change_last = excluded.p_change_last,
-            change_reason = excluded.change_reason, updated_at = NOW()"""
+        """
+        构建INSERT语句（ON CONFLICT处理，完整12个字段）
+
+        Returns:
+            INSERT SQL语句
+
+        注意：
+            - DuckDB不允许在ON CONFLICT中更新ann_date字段（有约束限制）
+            - 主键：PRIMARY KEY (ts_code, end_date, ann_date)
+        """
+        fields = "ts_code, ann_date, end_date, type, p_change_min, p_change_max, net_profit_min, net_profit_max, last_parent_net, first_ann_date, summary, change_reason, updated_at"
+
+        placeholders = ', '.join(['?'] * 12) + ', NOW()'
+
+        update_fields = "type = excluded.type, p_change_min = excluded.p_change_min, p_change_max = excluded.p_change_max, net_profit_min = excluded.net_profit_min, net_profit_max = excluded.net_profit_max, last_parent_net = excluded.last_parent_net, first_ann_date = excluded.first_ann_date, summary = excluded.summary, change_reason = excluded.change_reason, updated_at = NOW()"
 
         return f"""
-            INSERT INTO express ({fields}) VALUES ({placeholders})
-            ON CONFLICT (ts_code, ann_date, end_date) DO UPDATE SET {updates}
+            INSERT INTO express (ts_code, ann_date, end_date, type, p_change_min, p_change_max, net_profit_min, net_profit_max, last_parent_net, first_ann_date, summary, change_reason, updated_at)
+            VALUES ({placeholders})
+            ON CONFLICT (ts_code, end_date, ann_date)
+            DO UPDATE SET {update_fields}
         """
+
+

@@ -63,52 +63,47 @@ class THSIndexBasicCollector(BaseCollector):
 
     def _extract_values(self, item: Dict) -> tuple:
         """
-        提取字段值（严格按照p0_schema.sql定义）
+        提取字段值（严格按照ths_index_basic_schema.sql定义，完整6个字段）
 
         Args:
             item: API返回的单条数据
 
         Returns:
-            字段值元组
+            字段值元组（6个字段，严格按照schema定义顺序）
         """
         return (
-            item.get('ts_code'),        # ts_code
-            item.get('name'),           # name
-            item.get('fullname'),       # fullname
-            item.get('exchange'),       # exchange
-            item.get('type'),           # type
-            convert_date_format(item.get('list_date')),  # list_date
-            item.get('weight_rule'),    # weight_rule
-            item.get('description'),    # description（不是desc）
+            item.get('ts_code'),
+            item.get('name'),
+            item.get('count'),
+            item.get('exchange'),
+            convert_date_format(item.get('list_date')),
+            item.get('type'),
         )
+
 
     def _build_insert_query(self) -> str:
         """
-        构建INSERT语句（ON CONFLICT处理）
-
-        注意：
-            - type字段有索引，ON CONFLICT时不更新（避免约束错误）
-            - ts_code是PRIMARY KEY，ON CONFLICT时也不更新
+        构建INSERT语句（ON CONFLICT处理，完整6个字段）
 
         Returns:
             INSERT SQL语句
+
         """
-        return """
-            INSERT INTO ths_index_basic (
-                ts_code, name, fullname, exchange, type, list_date, weight_rule, description, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        fields = "ts_code, name, count, exchange, list_date, type, updated_at"
+
+        placeholders = ', '.join(['?'] * 6) + ', NOW()'
+
+        update_fields = "name = excluded.name, count = excluded.count, exchange = excluded.exchange, list_date = excluded.list_date, type = excluded.type, updated_at = NOW()"
+
+        return f"""
+            INSERT INTO ths_index_basic (ts_code, name, count, exchange, list_date, type, updated_at)
+            VALUES ({placeholders})
             ON CONFLICT (ts_code)
-            DO UPDATE SET
-                name = excluded.name,
-                fullname = excluded.fullname,
-                exchange = excluded.exchange,
-                list_date = excluded.list_date,
-                weight_rule = excluded.weight_rule,
-                description = excluded.description,
-                updated_at = NOW()
+            DO UPDATE SET {update_fields}
         """
 
-    def run(self) -> int:
+
+def run(self) -> int:
         """
         拉取并保存所有同花顺指数列表
 
