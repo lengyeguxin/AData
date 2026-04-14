@@ -5,12 +5,15 @@ AData后端启动入口
 1. 加载配置文件
 2. 初始化Database、API、游标管理器
 3. 自动数据拉取（如果enabled=true）
-4. 定时快照生成
-5. 启动调度器（定时任务）
+4. 启动定时任务调度器（定时快照、定时拉取）
+5. Dashboard启动（可选）
 
 使用方法：
-    python code/backend/main.py
-    python code/backend/main.py --no-fetch  # 跳过初始拉取
+    python code/backend/main.py                    # 集成启动（拉取数据+定时任务）
+    python code/backend/main.py --fetch            # 仅拉取数据（一次性）
+    python code/backend/main.py --scheduler        # 仅启动定时任务
+    python code/backend/main.py --no-fetch         # 跳过初始拉取
+    python code/backend/main.py --snapshot         # 立即创建快照
 """
 
 import sys
@@ -29,6 +32,8 @@ from src.core.database import Database
 from src.core.tushare_api import TushareAPI
 from src.core.global_cursor_manager import GlobalCursorManager
 from src.core.logger import get_logger
+from src.core.data_fetcher import DataFetcher
+from src.scheduler.scheduler import DataScheduler
 
 logger = get_logger(__name__)
 
@@ -87,6 +92,8 @@ def main():
     """主入口"""
     parser = argparse.ArgumentParser(description='AData后端启动')
     parser.add_argument('--config', default='code/backend/config/config.yaml', help='配置文件路径')
+    parser.add_argument('--fetch', action='store_true', help='仅拉取数据（一次性）')
+    parser.add_argument('--scheduler', action='store_true', help='仅启动定时任务调度器')
     parser.add_argument('--no-fetch', action='store_true', help='跳过初始数据拉取')
     parser.add_argument('--snapshot', action='store_true', help='立即创建快照')
 
@@ -117,17 +124,42 @@ def main():
     api = TushareAPI(config['tushare'])
     logger.info(f"TushareAPI已初始化: {config['tushare']['api_url']}")
 
-    # 4. 检查数据拉取开关
-    fetch_enabled = config.get('fetch', {}).get('enabled', True)
+    # 模式1：仅拉取数据（一次性）
+    if args.fetch:
+        logger.info("启动模式：仅拉取数据（一次性）")
+        fetcher = DataFetcher(db_path, config)
+        logger.info("开始拉取数据...")
+        fetcher.start()
+        logger.info("✓ 数据拉取完成")
+        return
 
-    if not args.no_fetch and fetch_enabled:
-        logger.info("数据拉取已启用（fetch.enabled=true）")
-        logger.info("提示：完整DataFetcher功能将在后续版本实现")
-        logger.info("当前版本：仅初始化游标系统，具体拉取需手动执行Collector")
-    else:
-        logger.info("数据拉取已禁用（fetch.enabled=false 或 --no-fetch）")
+    # 模式2：仅启动定时任务调度器
+    if args.scheduler:
+        logger.info("启动模式：仅启动定时任务调度器")
+        scheduler = DataScheduler(config)
+        scheduler.start()
+        logger.info("✓ 定时任务调度器已启动，按Ctrl+C停止")
 
-    # 5. 立即创建快照（如果指定）
+        # 查看任务状态
+        status = scheduler.get_jobs_status()
+        logger.info("定时任务状态：")
+        for job_id, job_info in status.items():
+            logger.info(f"  {job_info['name']}: 下次执行 {job_info['next_run_time']}")
+
+        # 保持运行
+        try:
+            import time
+            while True:
+                time.sleep(60)
+        except KeyboardInterrupt:
+            scheduler.stop()
+            logger.info("✓ 定时任务调度器已停止")
+        return
+
+    # 模式3：集成启动（默认）
+    logger.info("启动模式：集成启动（数据拉取+定时任务）")
+
+    # 4. 立即创建快照（如果指定）
     if args.snapshot:
         snapshot_config = config.get('snapshot', {})
         if snapshot_config.get('enabled', True):
@@ -136,16 +168,48 @@ def main():
         else:
             logger.info("快照功能已禁用（snapshot.enabled=false）")
 
-    # 6. 启动调度器（定时任务）
-    # TODO: 开发Scheduler完整功能（Phase 3后续开发）
+    # 5. 检查数据拉取开关
+    fetch_enabled = config.get('fetch', {}).get('enabled', True)
+
+    if not args.no_fetch and fetch_enabled:
+        logger.info("数据拉取已启用（fetch.enabled=true）")
+        logger.info("开始拉取数据...")
+
+        # 使用DataFetcher拉取数据
+        fetcher = DataFetcher(db_path, config)
+        fetcher.start()
+        logger.info("✓ 数据拉取完成")
+    else:
+        logger.info("数据拉取已禁用（fetch.enabled=false 或 --no-fetch）")
+
+    # 6. 启动定时任务调度器
+    scheduler_config = config.get('scheduler', {})
+    if scheduler_config.get('enabled', True):
+        logger.info("启动定时任务调度器...")
+        scheduler = DataScheduler(config)
+        scheduler.start()
+        logger.info("✓ 定时任务调度器已启动")
+
+        # 查看任务状态
+        status = scheduler.get_jobs_status()
+        logger.info("定时任务状态：")
+        for job_id, job_info in status.items():
+            logger.info(f"  {job_info['name']}: 下次执行 {job_info['next_run_time']}")
+
+        # 保持运行
+        logger.info("按Ctrl+C停止...")
+        try:
+            import time
+            while True:
+                time.sleep(60)
+        except KeyboardInterrupt:
+            scheduler.stop()
+            logger.info("✓ 定时任务调度器已停止")
+    else:
+        logger.info("定时任务已禁用（scheduler.enabled=false）")
 
     logger.info("=" * 80)
-    logger.info("✓ AData后端初始化完成")
-    logger.info("=" * 80)
-    logger.info("下一步操作:")
-    logger.info("  1. 手动测试Collector: python code/backend/src/collectors/daily_collector.py")
-    logger.info("  2. 创建快照: python code/backend/main.py --snapshot")
-    logger.info("  3. 查看游标状态: SELECT * FROM global_cursor;")
+    logger.info("✓ AData后端启动完成")
     logger.info("=" * 80)
 
 
