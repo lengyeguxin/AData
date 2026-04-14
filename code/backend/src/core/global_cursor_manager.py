@@ -9,10 +9,12 @@
 """
 
 import yaml
-import duckdb
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+# 使用Database类统一管理连接
+from src.core.database import Database
 
 
 class GlobalCursorManager:
@@ -77,14 +79,18 @@ class GlobalCursorManager:
                     );
                     CREATE INDEX IF NOT EXISTS idx_cursor_strategy ON global_cursor(cursor_strategy);
                 """
-                with duckdb.connect(self.db_path) as conn:
-                    conn.execute(create_sql)
+                # 使用Database类统一管理连接
+                db = Database(self.db_path)
+                db.execute(create_sql)
+                db.close()
             else:
                 # 从schema文件读取并执行
                 with open(schema_file, 'r', encoding='utf-8') as f:
                     schema_sql = f.read()
-                with duckdb.connect(self.db_path) as conn:
-                    conn.execute(schema_sql)
+                # 使用Database类统一管理连接
+                db = Database(self.db_path)
+                db.execute(schema_sql)
+                db.close()
 
             self.logger.info(f"游标表初始化成功: {self.db_path}")
             return True
@@ -139,24 +145,26 @@ class GlobalCursorManager:
             WHERE table_name = ?
         """
 
-        conn = duckdb.connect(self.db_path, read_only=True)
-        result = conn.execute(query, (table_name,)).fetchone()
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        result = db.execute(query, (table_name,))
+        db.close()
 
         if not result:
             return None
 
+        row = result[0]
         return {
-            'table_name': result[0],
-            'cursor_strategy': result[1],
-            'cursor_value': result[2],
-            'dependencies': result[3].split(',') if result[3] else [],
-            'fetch_after_time': result[4],
-            'last_fetch_time': str(result[5]) if result[5] else None,
-            'last_record_count': result[6],
-            'status': result[7],
-            'created_at': str(result[8]) if result[8] else None,
-            'updated_at': str(result[9]) if result[9] else None
+            'table_name': row[0],
+            'cursor_strategy': row[1],
+            'cursor_value': row[2],
+            'dependencies': row[3].split(',') if row[3] else [],
+            'fetch_after_time': row[4],
+            'last_fetch_time': str(row[5]) if row[5] else None,
+            'last_record_count': row[6],
+            'status': row[7],
+            'created_at': str(row[8]) if row[8] else None,
+            'updated_at': str(row[9]) if row[9] else None
         }
 
     def should_fetch(self, table_name: str) -> bool:
@@ -345,30 +353,31 @@ class GlobalCursorManager:
             ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, NOW())
         """
 
-        conn = duckdb.connect(self.db_path)
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
 
         # 1. 获取原始记录信息
-        result = conn.execute(query_get, (table_name,)).fetchone()
+        result = db.execute(query_get, (table_name,))
         if not result:
             self.logger.error(f"No cursor found for {table_name}")
-            conn.close()
+            db.close()
             return
 
-        cursor_strategy = result[0]
-        dependencies = result[1]
-        fetch_after_time = result[2]
-        created_at = result[3]
+        cursor_strategy = result[0][0]
+        dependencies = result[0][1]
+        fetch_after_time = result[0][2]
+        created_at = result[0][3]
 
         # 2. 删除旧记录
-        conn.execute(query_delete, (table_name,))
+        db.execute(query_delete, (table_name,))
 
         # 3. 插入新记录（更新cursor_value和status）
-        conn.execute(query_insert, (
+        db.execute(query_insert, (
             table_name, cursor_strategy, cursor_value, dependencies,
             fetch_after_time, record_count, self.STATUS_SUCCESS, created_at
         ))
 
-        conn.close()
+        db.close()
 
         self.logger.info(f"Cursor updated successfully for {table_name}")
 
@@ -380,9 +389,10 @@ class GlobalCursorManager:
             WHERE table_name = ?
         """
 
-        conn = duckdb.connect(self.db_path)
-        conn.execute(query, (self.STATUS_RUNNING, table_name))
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        db.execute(query, (self.STATUS_RUNNING, table_name))
+        db.close()
 
     def mark_failed(self, table_name: str, error_message: str = ""):
         """标记为失败"""
@@ -392,9 +402,10 @@ class GlobalCursorManager:
             WHERE table_name = ?
         """
 
-        conn = duckdb.connect(self.db_path)
-        conn.execute(query, (self.STATUS_FAILED, table_name))
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        db.execute(query, (self.STATUS_FAILED, table_name))
+        db.close()
 
     def should_update_cursor(self, table_name: str, has_data: bool) -> bool:
         """
@@ -436,9 +447,10 @@ class GlobalCursorManager:
             ORDER BY table_name
         """
 
-        conn = duckdb.connect(self.db_path, read_only=True)
-        results = conn.execute(query).fetchall()
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        results = db.execute(query)
+        db.close()
 
         cursors = []
         for row in results:
@@ -554,9 +566,10 @@ class GlobalCursorManager:
             WHERE table_name = ?
         """
 
-        conn = duckdb.connect(self.db_path)
-        conn.execute(query, (self.STATUS_PENDING, table_name))
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        db.execute(query, (self.STATUS_PENDING, table_name))
+        db.close()
 
     def reset_all_cursors(self):
         """重置所有表的游标"""
@@ -568,6 +581,7 @@ class GlobalCursorManager:
                 updated_at = NOW()
         """
 
-        conn = duckdb.connect(self.db_path)
-        conn.execute(query, (self.STATUS_PENDING,))
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        db.execute(query, (self.STATUS_PENDING,))
+        db.close()

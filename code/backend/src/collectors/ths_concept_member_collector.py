@@ -54,10 +54,11 @@ class THSConceptMemberCollector(BaseCollector):
         self.logger.info("开始遍历ths_index_basic拉取概念板块成分股")
 
         # 从数据库获取所有概念指数代码（type='N'）
-        db = duckdb.connect(self.db_path)
+        from src.core.database import Database
+        db = Database(self.db_path)
         index_codes = db.execute(
             "SELECT ts_code FROM ths_index_basic WHERE type='N' ORDER BY ts_code"
-        ).fetchall()
+        )
         db.close()
 
         self.logger.info(f"找到{len(index_codes)}个概念指数代码")

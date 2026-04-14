@@ -9,14 +9,13 @@ import sys
 from pathlib import Path
 
 # 添加backend到路径
-project_root = Path(__file__).parent.parent.parent.parent.parent  # 回到AData根目录
+project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
 backend_path = project_root / 'code' / 'backend'
 sys.path.insert(0, str(backend_path))
 
 from dashboard.config_manager import ConfigManager
 from src.core.global_cursor_manager import GlobalCursorManager
 from src.core.database import Database
-import duckdb
 
 
 def render_fetch_control(config_manager: ConfigManager):

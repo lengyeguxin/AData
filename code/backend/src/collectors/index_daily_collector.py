@@ -58,18 +58,18 @@ class IndexDailyCollector(BaseCollector):
         self.logger.info(f"拉取指数日线数据: trade_date={trade_date}")
 
         # 从index_basic表获取所有指数代码
-        import duckdb
-        db = duckdb.connect(self.db_path, read_only=True)
+        from src.core.database import Database
+        db = Database(self.db_path)
 
         index_codes = db.execute("""
             SELECT ts_code FROM index_basic ORDER BY ts_code
-        """).fetchall()
+        """)
 
         db.close()
 
         all_data = []
 
-        # 遍历所有指数代码
+        # 遍历所有指数代码（Database.execute()返回列表，不需要fetchall）
         for i, (ts_code,) in enumerate(index_codes):
             self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}")
 

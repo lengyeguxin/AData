@@ -10,7 +10,6 @@ Collector基类
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
-import duckdb
 
 # 添加src目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -131,23 +130,18 @@ class BaseCollector:
         # 转换数据
         records = self.transform(data)
 
-        # 批量插入
-        conn = duckdb.connect(self.db_path)
-        conn.execute("BEGIN TRANSACTION")
+        # 使用Database类统一管理连接（避免配置冲突）
+        db = Database(self.db_path)
 
         try:
+            # 批量插入
             for record in records:
-                conn.execute(query, record)
-
-            conn.execute("COMMIT")
-            conn.close()
+                db.execute(query, record)
 
             self.logger.info(f"{self.table_name}: 保存成功 {len(records)}条记录")
             return len(records)
 
         except Exception as e:
-            conn.execute("ROLLBACK")
-            conn.close()
             self.logger.error(f"{self.table_name}: 保存失败: {e}")
             raise
 
@@ -208,11 +202,11 @@ class BaseCollector:
             LIMIT 1
         """
 
-        conn = duckdb.connect(self.db_path, read_only=True)
-        result = conn.execute(query, tuple(params)).fetchone()
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        result = db.execute(query, tuple(params))
 
-        return result[0] > 0
+        return result[0][0] > 0
 
     def _extract_values(self, item: Dict) -> tuple:
         """
@@ -244,11 +238,11 @@ class BaseCollector:
         """
         query = f"SELECT COUNT(*) FROM {self.table_name}"
 
-        conn = duckdb.connect(self.db_path, read_only=True)
-        result = conn.execute(query).fetchone()
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        result = db.execute(query)
 
-        return result[0]
+        return result[0][0]
 
     def get_last_date(self) -> Optional[str]:
         """
@@ -262,11 +256,11 @@ class BaseCollector:
             FROM {self.table_name}
         """
 
-        conn = duckdb.connect(self.db_path, read_only=True)
-        result = conn.execute(query).fetchone()
-        conn.close()
+        # 使用Database类统一管理连接
+        db = Database(self.db_path)
+        result = db.execute(query)
 
-        if result and result[0]:
-            return str(result[0])
+        if result and result[0] and result[0][0]:
+            return str(result[0][0])
 
         return None

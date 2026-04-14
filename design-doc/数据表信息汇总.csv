@@ -21,8 +21,8 @@ ths_concept_moneyflow,同花顺概念板块资金流向,P3资金流向(THS),无,
 ths_industry_moneyflow,同花顺行业资金流向,P3资金流向(THS),无,无,按天记录（交易日）,trade_date（游标示例：20260409）,交易日每日拉取,增量拉取,moneyflow_ind_ths,trade_date={游标+1},trade_date={游标+1到今天（需判断18点）},https://tushare.pro/document/2?doc_id=343,同花顺行业资金流向数据
 ths_concept_member,同花顺概念板块成分,P3概念板块,ths_index_basic,同花顺概念和行业指数,特殊游标,ts_code（游标示例：885472.TI）,按月更新,全量拉取/更新,ths_member,遍历ths_index_basic: ts_code={同花顺指数代码},遍历ths_index_basic: ts_code={同花顺指数代码},https://tushare.pro/document/2?doc_id=261,同花顺概念板块成分股
 ths_index_daily,同花顺概念和行业指数日线,P3概念板块,"trade_calendar, ths_index_basic","交易日历, 同花顺概念和行业指数",按天记录（交易日）,trade_date（游标示例：20260409）,交易日每日拉取,增量拉取,ths_daily,trade_date={游标+1},trade_date={游标+1到今天（需判断18点）},https://tushare.pro/document/2?doc_id=260,同花顺概念和行业指数日线行情
-hots_user,游资账户,P4游资,无,无,无游标,无游标，全量拉取,按月更新,全量拉取/更新,hots_user,无,无参数，拉取全部游资账户列表,https://tushare.pro/document/2?doc_id=272,游资账户信息列表
-hots_trader_detail,游资交易,P4游资,无,无,按天记录（交易日）,trade_date（游标示例：20260409）,交易日每日拉取,增量拉取,hots_trader_detail,trade_date={游标+1},trade_date={游标+1到今天（需判断18点）},https://tushare.pro/document/2?doc_id=273,游资交易明细数据
+hots_user,游资账户,P4游资,无,无,无游标,无游标，全量拉取,按月更新,全量拉取/更新,hm_list,无,无参数，拉取全部游资账户列表,https://tushare.pro/document/2?doc_id=311,游资账户信息列表
+hots_trader_detail,游资交易,P4游资,无,无,按天记录（交易日）,trade_date（游标示例：20260409）,交易日每日拉取,增量拉取,hm_detail,trade_date={游标+1},trade_date={游标+1到今天（需判断18点）},https://tushare.pro/document/2?doc_id=312,游资交易明细数据
 index_daily,指数日线,P1行情,"trade_calendar, index_basic","交易日历, 指数列表",按天记录（交易日）,trade_date（游标示例：20260409）,交易日每日拉取,增量拉取,index_daily,trade_date={游标+1},trade_date={游标+1到今天（需判断18点）},https://tushare.pro/document/2?doc_id=95,指数日线行情数据
 etf_daily,ETF日线行情,P1行情,"trade_calendar, etf_basic","交易日历, ETF基本信息",按天记录（交易日）,trade_date（游标示例：20260409）,交易日每日拉取,增量拉取,fund_daily,trade_date={游标+1},trade_date={游标+1到今天（需判断18点）},https://tushare.pro/document/2?doc_id=127,ETF日线行情数据
 etf_adj_factor,ETF复权因子,P1行情,etf_daily,ETF日线行情,按天记录（交易日）,trade_date（游标示例：20260409）,交易日每日拉取,增量拉取,fund_adj,trade_date={游标+1},trade_date={游标+1到今天（需判断18点）},https://tushare.pro/document/2?doc_id=199,ETF复权因子数据
