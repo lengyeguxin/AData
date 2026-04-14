@@ -157,6 +157,10 @@ class DataFetcher:
 
             self._fetch_table(table_name)
 
+        # P0完成后，重新加载交易日历（trade_calendar表在运行时才拉取数据）
+        self.logger.info("P0前置表完成，重新加载交易日历...")
+        self.trade_calendar = self._load_trade_calendar()
+
         self.logger.info("")
 
         # P1行情表
