@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Optional
 
-# 添加项目路径到Python路径
-project_root = Path(__file__).parent.parent.parent
+#        /home/my/claude-project/AData/code/frontend/dashboard/metadata.py
+#        parent.parent.parent.parent = /home/my/claude-project/AData
+project_root = Path(__file__).parent.parent.parent.parent
 backend_path = project_root / 'backend'
 sys.path.insert(0, str(backend_path))
 

@@ -13,7 +13,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from dashboard.metadata import DatabaseMetadata
-from dashboard.config_manager import ConfigManager
+from dashboard.config import get_dashboard_config_manager
 from dashboard.components.overview import render_overview
 from dashboard.components.table_list import render_table_list
 from dashboard.components.table_detail import render_table_detail
@@ -85,19 +85,19 @@ selected_view = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 数据库信息")
 
-# 获取配置管理器（用于获取正确的快照路径）
-config_manager_temp = ConfigManager("../config/config.yaml")
-dashboard_db_config = config_manager_temp.get_dashboard_database_config()
+# 获取配置管理器（用于获取数据库路径）
+dashboard_config = get_dashboard_config_manager()
+db_path = dashboard_config.get_database_path()
 
 # 获取元数据查询器（提前获取，用于显示信息）
-metadata_temp = DatabaseMetadata(dashboard_db_config['fallback'], use_snapshot=dashboard_db_config['use_snapshot'])
-db_display_path = metadata_temp.db_path if metadata_temp.using_snapshot else dashboard_db_config['fallback']
-snapshot_status = "快照副本" if metadata_temp.using_snapshot else "主数据库"
+metadata_temp = DatabaseMetadata(db_path, use_snapshot=True)
+db_display_path = metadata_temp.db_path
+snapshot_status = "快照副本只读" if metadata_temp.using_snapshot else "主数据库"
 
 st.sidebar.info(f"""
 **数据库**: {db_display_path}
 
-**模式**: {snapshot_status} (读写分离)
+**模式**: {snapshot_status}
 
 **总表数**: 查看"整体概览"
 
@@ -107,31 +107,31 @@ st.sidebar.info(f"""
 # 缓存元数据查询器（整个会话期间只创建一次）
 @st.cache_resource
 def get_metadata():
-    """缓存元数据查询器（使用快照副本进行读写分离）"""
-    # 从ConfigManager获取Dashboard数据库配置
-    config_manager = get_config_manager()
-    dashboard_db_config = config_manager.get_dashboard_database_config()
+    """缓存元数据查询器（使用快照数据库）"""
+    # 从Dashboard配置管理器获取数据库路径
+    dashboard_config = get_dashboard_config_manager()
+    db_path = dashboard_config.get_database_path()
 
-    # 使用主数据库路径，但启用快照模式（自动fallback到快照）
-    metadata = DatabaseMetadata(
-        dashboard_db_config['fallback'],
-        use_snapshot=dashboard_db_config['use_snapshot']
-    )
+    # 创建元数据查询器，使用快照模式
+    metadata = DatabaseMetadata(db_path, use_snapshot=True)
 
-    # 如果使用快照副本，显示提示信息
+    # 显示提示信息
     if metadata.using_snapshot:
-        st.sidebar.success("✅ 使用快照副本读取数据（读写分离模式）")
+        st.sidebar.success("✅ 使用快照数据库读取数据（只读模式）")
 
     return metadata
 
 @st.cache_resource
 def get_config_manager():
-    """缓存配置管理器"""
-    return ConfigManager("../config/config.yaml")
+    """缓存配置管理器（使用旧的ConfigManager用于数据拉取控制等）"""
+    # 保留旧的ConfigManager以兼容数据拉取控制等功能
+    from dashboard.config_manager import ConfigManager
+    return ConfigManager("../../backend/config/config.yaml")
 
 # 获取元数据查询器和配置管理器
 metadata = get_metadata()
 config_manager = get_config_manager()
+dashboard_config = get_dashboard_config_manager()
 
 # 根据选择渲染不同页面
 try:
