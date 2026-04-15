@@ -10,8 +10,61 @@ TushareAPI封装
 import time
 import requests
 import json
+import threading
+import random
+from collections import deque
 from typing import Dict, List, Optional
 from src.core.logger import get_logger
+
+
+class ThreadSafeRateLimiter:
+    """
+    线程安全限流器（Sliding Window算法）
+    - 保证全局500 req/min
+    - 线程锁保护时间戳队列
+    - 自动等待当超限时
+    """
+
+    def __init__(self, rate_limit: int = 500, window_seconds: int = 60):
+        """
+        初始化限流器
+
+        Args:
+            rate_limit: 时间窗口内最大请求数（默认500）
+            window_seconds: 时间窗口大小（默认60秒）
+        """
+        self.rate_limit = rate_limit
+        self.window_seconds = window_seconds
+        self.request_timestamps = deque(maxlen=rate_limit)
+        self.lock = threading.Lock()  # 保护队列
+        self.logger = get_logger(__name__)
+
+    def acquire(self):
+        """
+        获取请求许可（阻塞直到限流允许）
+        - 移除过期时间戳
+        - 检查是否可请求
+        - 计算等待时间并阻塞
+        """
+        with self.lock:
+            # 移除过期时间戳（超过时间窗口）
+            now = time.time()
+            while self.request_timestamps and self.request_timestamps[0] < now - self.window_seconds:
+                self.request_timestamps.popleft()
+
+            # 检查是否可请求
+            if len(self.request_timestamps) < self.rate_limit:
+                self.request_timestamps.append(now)
+                return True
+
+            # 计算等待时间（等待最早的时间戳过期）
+            wait_time = self.request_timestamps[0] + self.window_seconds - now
+            if wait_time > 0:
+                self.logger.info(f"限流等待: {wait_time:.2f}秒（已达到{self.rate_limit}次/分钟限制）")
+
+        # 在锁外等待（避免阻塞其他线程）
+        time.sleep(wait_time)
+        return self.acquire()  # 重试
 
 
 class TushareAPI:
@@ -36,16 +89,22 @@ class TushareAPI:
                 - token: API Token
                 - api_url: API地址
                 - rate_limit: 速率限制（次/分钟）
+                - random_sleep_min: 随机休眠最小值（秒）
+                - random_sleep_max: 随机休眠最大值（秒）
         """
         self.token = config.get('token', '')
         self.api_url = config.get('api_url', 'http://8.136.22.187:8010/')  # 新代理地址
         self.rate_limit = config.get('rate_limit', 500)  # 每分钟500次
+        self.random_sleep_min = config.get('random_sleep_min', 1)  # 默认最小1秒
+        self.random_sleep_max = config.get('random_sleep_max', 3)  # 默认最大3秒
 
         self.logger = get_logger(__name__)
 
-        # 速率控制
-        self.last_request_time = 0
-        self.request_interval = 60.0 / self.rate_limit  # 每次请求间隔（秒）
+        # 线程安全速率控制
+        self.rate_limiter = ThreadSafeRateLimiter(
+            rate_limit=self.rate_limit,
+            window_seconds=60
+        )
 
     def query(self, api_name: str, **kwargs) -> List[Dict]:
         """
@@ -69,8 +128,15 @@ class TushareAPI:
         """
         self.logger.info(f"调用API: {api_name}, 参数: {kwargs}")
 
-        # 速率控制（避免超过每分钟限制）
-        self._rate_limit_control()
+        # 线程安全速率控制（自动阻塞等待）
+        self.rate_limiter.acquire()
+
+        # 随机休眠（避免过于频繁请求）
+        # 如果max设置为0，则禁用休眠
+        if self.random_sleep_max > 0:
+            sleep_time = random.uniform(self.random_sleep_min, self.random_sleep_max)
+            self.logger.info(f"随机休眠: {sleep_time:.2f}秒")
+            time.sleep(sleep_time)
 
         # 构建请求参数
         params = {
@@ -130,6 +196,7 @@ class TushareAPI:
                 result.append(row_dict)
 
             self.logger.info(f"API返回数据: {len(result)}条记录")
+
             return result
 
         except requests.Timeout:
@@ -139,24 +206,6 @@ class TushareAPI:
         except requests.RequestException as e:
             self.logger.error(f"API请求失败: {api_name} - {e}")
             raise Exception(f"API请求失败: {e}")
-
-    def _rate_limit_control(self):
-        """
-        速率控制（避免超过每分钟限制）
-
-        策略：
-        - 记录上次请求时间
-        - 每次请求间隔 ≥ 60秒/速率限制
-        - 例如：500次/分钟 → 每次0.12秒间隔
-        """
-        current_time = time.time()
-        elapsed_time = current_time - self.last_request_time
-
-        if elapsed_time < self.request_interval:
-            sleep_time = self.request_interval - elapsed_time
-            time.sleep(sleep_time)
-
-        self.last_request_time = time.time()
 
     def is_vip_interface(self, api_name: str) -> bool:
         """

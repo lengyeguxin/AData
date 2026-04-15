@@ -152,7 +152,8 @@ def main():
         sys.exit(1)
 
     # 2. 初始化数据库和游标
-    db_path = str(project_root / 'database' / 'adata.db')
+    db_path_config = config.get('database', {}).get('path', 'database/adata.db')
+    db_path = str(project_root / db_path_config)
     db = initialize_database(db_path)
 
     # 初始化游标表

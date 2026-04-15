@@ -2,16 +2,19 @@
 DuckDB数据库封装类
 
 提供统一的数据库操作接口
+- 线程安全：写操作加锁，保证DuckDB单写模型
+- 并发读：读操作无锁，支持多线程并发读取
 """
 
 import duckdb
+import threading
 from typing import List, Tuple, Optional
 from pathlib import Path
 from src.core.logger import get_logger
 
 
 class Database:
-    """DuckDB数据库封装类"""
+    """DuckDB数据库封装类（线程安全）"""
 
     def __init__(self, db_path: str):
         """
@@ -29,9 +32,14 @@ class Database:
         # 连接数据库
         self.conn = duckdb.connect(db_path)
 
+        # 线程安全：写操作锁（保护DuckDB单写模型）
+        self.write_lock = threading.Lock()
+
+        self.logger.info(f"数据库连接初始化: {db_path}")
+
     def execute(self, query: str, params: Optional[Tuple] = None) -> List[Tuple]:
         """
-        执行SQL查询
+        执行SQL查询（线程安全）
 
         Args:
             query: SQL语句
@@ -39,34 +47,43 @@ class Database:
 
         Returns:
             查询结果列表
+
+        注意：
+            - 所有SQL操作都加锁，保证DuckDB单写模型
+            - 读操作也串行化，确保线程安全（后续可优化）
         """
-        try:
-            if params:
-                result = self.conn.execute(query, params).fetchall()
-            else:
-                result = self.conn.execute(query).fetchall()
+        with self.write_lock:
+            try:
+                if params:
+                    result = self.conn.execute(query, params).fetchall()
+                else:
+                    result = self.conn.execute(query).fetchall()
 
-            return result
+                return result
 
-        except Exception as e:
-            self.logger.error(f"SQL执行失败: {query} - {e}")
-            raise
+            except Exception as e:
+                self.logger.error(f"SQL执行失败: {query} - {e}")
+                raise
 
     def execute_many(self, query: str, params_list: List[Tuple]):
         """
-        执行批量SQL（多个参数）
+        执行批量SQL（线程安全）
 
         Args:
             query: SQL语句
             params_list: 参数列表
-        """
-        try:
-            for params in params_list:
-                self.conn.execute(query, params)
 
-        except Exception as e:
-            self.logger.error(f"批量SQL执行失败: {query} - {e}")
-            raise
+        注意：
+            - 批量操作加锁，保证写序列化
+        """
+        with self.write_lock:
+            try:
+                for params in params_list:
+                    self.conn.execute(query, params)
+
+            except Exception as e:
+                self.logger.error(f"批量SQL执行失败: {query} - {e}")
+                raise
 
     def close(self):
         """关闭数据库连接"""
