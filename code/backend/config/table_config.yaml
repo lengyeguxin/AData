@@ -1,471 +1,494 @@
-# AData数据表配置文件
-# 严格按照design-doc/数据表信息汇总.csv文档编写
-# 每个表包含游标策略、依赖关系、接口参数、文档地址等
-
 tables:
-  # ========================================
-  # P0基础数据（前置表，共6张）
-  # 按固定顺序拉取：trade_calendar → stock_basic → index_basic → ths_index_basic → etf_basic → etf_index
-  # ========================================
-
   trade_calendar:
-    cursor_strategy: yearly                  # 游标策略：按年记录
-    update_frequency: yearly                 # 更新频率：按年拉取
-    fetch_type: full                         # 拉取类型：全量拉取
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [exchange, cal_date]        # 主键：exchange+cal_date组合
-    api_name: trade_cal                      # 接口名称：trade_cal
-    api_params:                              # 接口参数
-      exchange: "SSE/SZSE"
-      start_date: "{游标年+1}0101"
-      end_date: "{当前年}1231"
-    cursor_field: start_date                 # 游标字段：start_date（年份）
-    cursor_example: "2025"                   # 游标示例：2025表示2025年数据已获取
-    doc_url: "https://tushare.pro/document/2?doc_id=26"
-    description: "各交易所交易日历，包括开市日期、节假日等"
-
+    cursor_strategy: yearly
+    update_frequency: yearly
+    fetch_type: full
+    dependencies: []
+    fetch_after_time: 09:00
+    primary_key:
+    - exchange
+    - cal_date
+    api_name: trade_cal
+    api_params:
+      exchange: SSE/SZSE
+      start_date: '{游标年+1}0101'
+      end_date: '{当前年}1231'
+    cursor_field: start_date
+    cursor_example: '2025'
+    doc_url: https://tushare.pro/document/2?doc_id=26
+    description: 各交易所交易日历，包括开市日期、节假日等
   stock_basic:
-    cursor_strategy: none                    # 游标策略：无游标
-    update_frequency: monthly                # 更新频率：按月更新
-    fetch_type: full                         # 拉取类型：全量拉取/更新
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [ts_code]                   # 主键：ts_code
-    api_name: stock_basic                    # 接口名称：stock_basic
-    api_params: {}                           # 接口参数：无参数
-    cursor_field: null                       # 游标字段：无
-    cursor_example: "completed"              # 游标示例：completed表示已完成
-    doc_url: "https://tushare.pro/document/2?doc_id=25"
-    description: "上市公司基础信息，包括代码、名称、行业、上市日期等"
-
+    cursor_strategy: none
+    update_frequency: monthly
+    fetch_type: full
+    dependencies: []
+    fetch_after_time: 09:00
+    primary_key:
+    - ts_code
+    api_name: stock_basic
+    api_params: {}
+    cursor_field: null
+    cursor_example: completed
+    doc_url: https://tushare.pro/document/2?doc_id=25
+    description: 上市公司基础信息，包括代码、名称、行业、上市日期等
   index_basic:
-    cursor_strategy: none                    # 游标策略：无游标
-    update_frequency: monthly                # 更新频率：按月更新
-    fetch_type: full                         # 拉取类型：全量拉取/更新
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [ts_code]                   # 主键：ts_code
-    api_name: index_basic                    # 接口名称：index_basic
-    api_params:                              # 接口参数
-      market: "SSE/SZSE"                     # 分两次拉取：market=SSE, market=SZSE
-    cursor_field: null                       # 游标字段：无
-    cursor_example: "completed"              # 游标示例：completed表示已完成
-    doc_url: "https://tushare.pro/document/2?doc_id=94"
-    description: "指数基础信息，包括名称、类型、基准日期等"
-
+    cursor_strategy: none
+    update_frequency: monthly
+    fetch_type: full
+    dependencies: []
+    fetch_after_time: 09:00
+    primary_key:
+    - ts_code
+    api_name: index_basic
+    api_params:
+      market: SSE/SZSE
+    cursor_field: null
+    cursor_example: completed
+    doc_url: https://tushare.pro/document/2?doc_id=94
+    description: 指数基础信息，包括名称、类型、基准日期等
   ths_index_basic:
-    cursor_strategy: none                    # 游标策略：无游标
-    update_frequency: monthly                # 更新频率：按月更新
-    fetch_type: full                         # 拉取类型：全量拉取/更新
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [ts_code]                   # 主键：ts_code
-    api_name: ths_index                      # 接口名称：ths_index
-    api_params:                              # 接口参数
-      exchange: "A"
-      type: "N/S"                            # 拉取A股概念(N)和特色(S)指数
-    cursor_field: null                       # 游标字段：无
-    cursor_example: "completed"              # 游标示例：completed表示已完成
-    doc_url: "https://tushare.pro/document/2?doc_id=259"
-    description: "同花顺概念和行业指数基础信息"
-
+    cursor_strategy: none
+    update_frequency: monthly
+    fetch_type: full
+    dependencies: []
+    fetch_after_time: 09:00
+    primary_key:
+    - ts_code
+    api_name: ths_index
+    api_params:
+      exchange: A
+      type: N/S
+    cursor_field: null
+    cursor_example: completed
+    doc_url: https://tushare.pro/document/2?doc_id=259
+    description: 同花顺概念和行业指数基础信息
   etf_basic:
-    cursor_strategy: none                    # 游标策略：无游标
-    update_frequency: monthly                # 更新频率：按月更新
-    fetch_type: full                         # 拉取类型：全量拉取/更新
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [ts_code]                   # 主键：ts_code
-    api_name: etf_basic                      # 接口名称：etf_basic
-    api_params: {}                           # 接口参数：无参数
-    cursor_field: null                       # 游标字段：无
-    cursor_example: "completed"              # 游标示例：completed表示已完成
-    doc_url: "https://tushare.pro/document/2?doc_id=385"
-    description: "ETF基础信息，包括代码、名称、跟踪指数等"
-
+    cursor_strategy: none
+    update_frequency: monthly
+    fetch_type: full
+    dependencies: []
+    fetch_after_time: 09:00
+    primary_key:
+    - ts_code
+    api_name: etf_basic
+    api_params: {}
+    cursor_field: null
+    cursor_example: completed
+    doc_url: https://tushare.pro/document/2?doc_id=385
+    description: ETF基础信息，包括代码、名称、跟踪指数等
   etf_index:
-    cursor_strategy: none                    # 游标策略：无游标
-    update_frequency: monthly                # 更新频率：按月更新
-    fetch_type: full                         # 拉取类型：全量拉取/更新
-    dependencies: [etf_basic]                # 前置表依赖：etf_basic
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [ts_code]                   # 主键：ts_code
-    api_name: etf_index                      # 接口名称：etf_index
-    api_params: {}                           # 接口参数：无参数
-    cursor_field: null                       # 游标字段：无
-    cursor_example: "completed"              # 游标示例：completed表示已完成
-    doc_url: "https://tushare.pro/document/2?doc_id=386"
-    description: "ETF跟踪的基准指数信息"
-
-  # ========================================
-  # P1行情数据（共7张）
-  # 按交易日每日拉取，游标记录最后完成的交易日期
-  # 18点时间判断：当前时间≥18:00使用今天日期，<18:00使用昨日日期
-  # ========================================
-
+    cursor_strategy: none
+    update_frequency: monthly
+    fetch_type: full
+    dependencies:
+    - etf_basic
+    fetch_after_time: 09:00
+    primary_key:
+    - ts_code
+    api_name: etf_index
+    api_params: {}
+    cursor_field: null
+    cursor_example: completed
+    doc_url: https://tushare.pro/document/2?doc_id=386
+    description: ETF跟踪的基准指数信息
   stock_daily:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [trade_calendar, stock_basic]
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: daily                          # 接口名称：daily
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-      adj: "null"                            # 不复权
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=27"
-    description: "股票日线行情数据，包括开高低收、成交量、涨跌幅等"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - trade_calendar
+    - stock_basic
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: daily
+    api_params:
+      trade_date: '{游标+1}'
+      adj: 'null'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=27
+    description: 股票日线行情数据，包括开高低收、成交量、涨跌幅等
   stock_daily_basic:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: daily_basic                    # 接口名称：daily_basic
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-      adj: "null"                            # 不复权
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=32"
-    description: "每日估值指标，包括PE/PB/PS、市值、换手率等"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: daily_basic
+    api_params:
+      trade_date: '{游标+1}'
+      adj: 'null'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=32
+    description: 每日估值指标，包括PE/PB/PS、市值、换手率等
   stock_weekly:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日更新（周线每周交易日都会更新）
-    fetch_type: incremental                  # 拉取类型：增量拉取/更新
-    dependencies: [trade_calendar, stock_basic]
-    fetch_after_time: "19:00"                # 截止时间判断：19:00
-    primary_key: [ts_code, trade_date]
-    api_name: stk_week_month_adj             # 接口名称：stk_week_month_adj
-    api_params:                              # 接口参数
-      start_date: "{游标+1}"
-      end_date: "{计算周五}"                  # 按游标+1计算出的周五日期
-      freq: "week"                           # 周线
-    cursor_field: start_date                 # 游标字段：start_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要19点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=365"
-    description: "股票周线行情数据"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - trade_calendar
+    - stock_basic
+    fetch_after_time: '19:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: stk_week_month_adj
+    api_params:
+      start_date: '{游标+1}'
+      end_date: '{计算周五}'
+      freq: week
+    cursor_field: start_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=365
+    description: 股票周线行情数据
   stock_monthly:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日更新（月线每月交易日都会更新）
-    fetch_type: incremental                  # 拉取类型：增量拉取/更新
-    dependencies: [trade_calendar, stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, trade_date]
-    api_name: stk_week_month_adj             # 接口名称：stk_week_month_adj
-    api_params:                              # 接口参数
-      start_date: "{游标+1}"
-      end_date: "{计算周五}"                  # 按游标+1计算出的周五日期
-      freq: "month"                          # 月线
-    cursor_field: start_date                 # 游标字段：start_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要20点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=365"
-    description: "股票月线行情数据"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - trade_calendar
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: stk_week_month_adj
+    api_params:
+      start_date: '{游标+1}'
+      end_date: '{计算周五}'
+      freq: month
+    cursor_field: start_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=365
+    description: 股票月线行情数据
   index_daily:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [trade_calendar, index_basic]
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: index_daily                    # 接口名称：index_daily
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=95"
-    description: "指数日线行情数据"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - trade_calendar
+    - index_basic
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: index_daily
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=95
+    description: 指数日线行情数据
+    index_codes:
+    - 000001.SH
+    - 399001.SZ
+    - 000300.SH
+    - 399006.SZ
+    - 000016.SH
+    - 000905.SH
+    - 000688.SH
+    - 000680.SH
   etf_daily:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [trade_calendar, etf_basic]
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: fund_daily                     # 接口名称：fund_daily
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=127"
-    description: "ETF日线行情数据"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - trade_calendar
+    - etf_basic
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: fund_daily
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=127
+    description: ETF日线行情数据
   etf_adj_factor:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [etf_daily]
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: fund_adj                       # 接口名称：fund_adj
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=199"
-    description: "ETF复权因子数据"
-
-  # ========================================
-  # P2财务数据（共7张）
-  # 按自然日每日拉取，游标记录公告日期（ann_date）
-  # 不受交易日历限制，允许无数据更新游标
-  # VIP接口：fina_indicator_vip、income_vip、balancesheet_vip、cashflow_vip、forecast_vip、express_vip
-  # ========================================
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - etf_daily
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: fund_adj
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=199
+    description: ETF复权因子数据
   fina_indicator:
-    cursor_strategy: daily_natural           # 游标策略：按天记录（自然日）
-    update_frequency: daily                  # 更新频率：自然日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, end_date]
-    api_name: fina_indicator_vip             # 接口名称：fina_indicator_vip（VIP接口）
-    api_params:                              # 接口参数
-      ann_date: "{游标+1}"
-    cursor_field: ann_date                   # 游标字段：ann_date（公告日期）
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    allow_no_data: true                      # 允许无数据更新游标（财务表特性）
-    doc_url: "https://tushare.pro/document/2?doc_id=79"
-    description: "上市公司财务指标数据，包括ROE、利润率、增长率等（VIP接口）"
-
+    cursor_strategy: daily_natural
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - end_date
+    api_name: fina_indicator_vip
+    api_params:
+      ann_date: '{游标+1}'
+    cursor_field: ann_date
+    cursor_example: '20260409'
+    allow_no_data: true
+    doc_url: https://tushare.pro/document/2?doc_id=79
+    description: 上市公司财务指标数据，包括ROE、利润率、增长率等（VIP接口）
   income:
-    cursor_strategy: daily_natural           # 游标策略：按天记录（自然日）
-    update_frequency: daily                  # 更新频率：自然日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, end_date, report_type]
-    api_name: income_vip                     # 接口名称：income_vip（VIP接口）
-    api_params:                              # 接口参数
-      ann_date: "{游标+1}"
-      report_type: "1"                       # report_type=1
-    cursor_field: ann_date                   # 游标字段：ann_date（公告日期）
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    allow_no_data: true                      # 允许无数据更新游标（财务表特性）
-    doc_url: "https://tushare.pro/document/2?doc_id=33"
-    description: "上市公司利润表，包括营收、利润、EPS等（VIP接口）"
-
+    cursor_strategy: daily_natural
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - end_date
+    - report_type
+    api_name: income_vip
+    api_params:
+      ann_date: '{游标+1}'
+      report_type: '1'
+    cursor_field: ann_date
+    cursor_example: '20260409'
+    allow_no_data: true
+    doc_url: https://tushare.pro/document/2?doc_id=33
+    description: 上市公司利润表，包括营收、利润、EPS等（VIP接口）
   balancesheet:
-    cursor_strategy: daily_natural           # 游标策略：按天记录（自然日）
-    update_frequency: daily                  # 更新频率：自然日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, end_date, report_type]
-    api_name: balancesheet_vip               # 接口名称：balancesheet_vip（VIP接口）
-    api_params:                              # 接口参数
-      ann_date: "{游标+1}"
-      report_type: "1"                       # report_type=1
-    cursor_field: ann_date                   # 游标字段：ann_date（公告日期）
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    allow_no_data: true                      # 允许无数据更新游标（财务表特性）
-    doc_url: "https://tushare.pro/document/2?doc_id=36"
-    description: "上市公司资产负债表，包括资产、负债、股东权益等（VIP接口）"
-
+    cursor_strategy: daily_natural
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - end_date
+    - report_type
+    api_name: balancesheet_vip
+    api_params:
+      ann_date: '{游标+1}'
+      report_type: '1'
+    cursor_field: ann_date
+    cursor_example: '20260409'
+    allow_no_data: true
+    doc_url: https://tushare.pro/document/2?doc_id=36
+    description: 上市公司资产负债表，包括资产、负债、股东权益等（VIP接口）
   cashflow:
-    cursor_strategy: daily_natural           # 游标策略：按天记录（自然日）
-    update_frequency: daily                  # 更新频率：自然日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, end_date, report_type]
-    api_name: cashflow_vip                   # 接口名称：cashflow_vip（VIP接口）
-    api_params:                              # 接口参数
-      ann_date: "{游标+1}"
-      report_type: "1"                       # report_type=1
-    cursor_field: ann_date                   # 游标字段：ann_date（公告日期）
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    allow_no_data: true                      # 允许无数据更新游标（财务表特性）
-    doc_url: "https://tushare.pro/document/2?doc_id=44"
-    description: "上市公司现金流量表，包括经营、投资、筹资现金流等（VIP接口）"
-
+    cursor_strategy: daily_natural
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - end_date
+    - report_type
+    api_name: cashflow_vip
+    api_params:
+      ann_date: '{游标+1}'
+      report_type: '1'
+    cursor_field: ann_date
+    cursor_example: '20260409'
+    allow_no_data: true
+    doc_url: https://tushare.pro/document/2?doc_id=44
+    description: 上市公司现金流量表，包括经营、投资、筹资现金流等（VIP接口）
   express:
-    cursor_strategy: daily_natural           # 游标策略：按天记录（自然日）
-    update_frequency: daily                  # 更新频率：自然日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, end_date, ann_date]
-    api_name: forecast_vip                   # 接口名称：forecast_vip（VIP接口）
-    api_params:                              # 接口参数
-      ann_date: "{游标+1}"
-    cursor_field: ann_date                   # 游标字段：ann_date（公告日期）
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    allow_no_data: true                      # 允许无数据更新游标（财务表特性）
-    doc_url: "https://tushare.pro/document/2?doc_id=45"
-    description: "上市公司业绩预告，包括预告类型、利润范围等（VIP接口）"
-
+    cursor_strategy: daily_natural
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - end_date
+    - ann_date
+    api_name: forecast_vip
+    api_params:
+      ann_date: '{游标+1}'
+    cursor_field: ann_date
+    cursor_example: '20260409'
+    allow_no_data: true
+    doc_url: https://tushare.pro/document/2?doc_id=45
+    description: 上市公司业绩预告，包括预告类型、利润范围等（VIP接口）
   express_brief:
-    cursor_strategy: daily_natural           # 游标策略：按天记录（自然日）
-    update_frequency: daily                  # 更新频率：自然日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, end_date, ann_date]
-    api_name: express_vip                    # 接口名称：express_vip（VIP接口）
-    api_params:                              # 接口参数
-      ann_date: "{游标+1}"
-    cursor_field: ann_date                   # 游标字段：ann_date（公告日期）
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    allow_no_data: true                      # 允许无数据更新游标（财务表特性）
-    doc_url: "https://tushare.pro/document/2?doc_id=46"
-    description: "上市公司业绩快报，包括主要财务指标（VIP接口）"
-
+    cursor_strategy: daily_natural
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - end_date
+    - ann_date
+    api_name: express_vip
+    api_params:
+      ann_date: '{游标+1}'
+    cursor_field: ann_date
+    cursor_example: '20260409'
+    allow_no_data: true
+    doc_url: https://tushare.pro/document/2?doc_id=46
+    description: 上市公司业绩快报，包括主要财务指标（VIP接口）
   dividend:
-    cursor_strategy: daily_natural           # 游标策略：按天记录（自然日）
-    update_frequency: daily                  # 更新频率：自然日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_basic]
-    fetch_after_time: "20:00"                # 截止时间判断：20:00
-    primary_key: [ts_code, ann_date, record_date]
-    api_name: dividend                       # 接口名称：dividend（标准接口）
-    api_params:                              # 接口参数
-      ann_date: "{游标+1}"
-    cursor_field: ann_date                   # 游标字段：ann_date（公告日期）
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    allow_no_data: true                      # 允许无数据更新游标（财务表特性）
-    doc_url: "https://tushare.pro/document/2?doc_id=103"
-    description: "上市公司分红送股数据"
-
-  # ========================================
-  # P3资金流向(THS)（共3张）
-  # 按交易日每日拉取，使用同花顺数据接口
-  # ========================================
-
+    cursor_strategy: daily_natural
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_basic
+    fetch_after_time: '20:00'
+    primary_key:
+    - ts_code
+    - ann_date
+    - record_date
+    api_name: dividend
+    api_params:
+      ann_date: '{游标+1}'
+    cursor_field: ann_date
+    cursor_example: '20260409'
+    allow_no_data: true
+    doc_url: https://tushare.pro/document/2?doc_id=103
+    description: 上市公司分红送股数据
   ths_moneyflow:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [stock_daily]
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: moneyflow_ths                  # 接口名称：moneyflow_ths
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=348"
-    description: "同花顺个股资金流向数据"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - stock_daily
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: moneyflow_ths
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=348
+    description: 同花顺个股资金流向数据
   ths_concept_moneyflow:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: moneyflow_cnt_ths               # 接口名称：moneyflow_cnt_ths
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=371"
-    description: "同花顺概念板块资金流向数据"
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies: []
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: moneyflow_cnt_ths
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=371
+    description: 同花顺概念板块资金流向数据
   ths_industry_moneyflow:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: moneyflow_ind_ths               # 接口名称：moneyflow_ind_ths
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=343"
-    description: "同花顺行业资金流向数据"
-
-  # ========================================
-  # P3概念板块（共2张）
-  # ths_concept_member：特殊游标（遍历指数列表）
-  # ths_index_daily：按交易日拉取
-  # ========================================
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies: []
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: moneyflow_ind_ths
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=343
+    description: 同花顺行业资金流向数据
   ths_concept_member:
-    cursor_strategy: special_ths_member      # 游标策略：特殊游标（遍历指数列表）
-    update_frequency: monthly                # 更新频率：按月更新
-    fetch_type: full                         # 拉取类型：全量拉取/更新
-    dependencies: [ths_index_basic]          # 前置表依赖：ths_index_basic
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [ts_code, con_code]
-    api_name: ths_member                     # 接口名称：ths_member
-    api_params:                              # 接口参数
-      ts_code: "{同花顺指数代码}"             # 遍历ths_index_basic的所有指数代码
-    cursor_field: ts_code                    # 游标字段：ts_code（指数代码）
-    cursor_example: "885472.TI"              # 游标示例：当前遍历到的指数代码
-    doc_url: "https://tushare.pro/document/2?doc_id=261"
-    description: "同花顺概念板块成分股"
-
+    cursor_strategy: special_ths_member
+    update_frequency: monthly
+    fetch_type: full
+    dependencies:
+    - ths_index_basic
+    fetch_after_time: 09:00
+    primary_key:
+    - ts_code
+    - con_code
+    api_name: ths_member
+    api_params:
+      ts_code: '{同花顺指数代码}'
+    cursor_field: ts_code
+    cursor_example: 885472.TI
+    doc_url: https://tushare.pro/document/2?doc_id=261
+    description: 同花顺概念板块成分股
   ths_index_daily:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: [trade_calendar, ths_index_basic]
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [ts_code, trade_date]
-    api_name: ths_daily                      # 接口名称：ths_daily
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=260"
-    description: "同花顺概念和行业指数日线行情"
-
-  # ========================================
-  # P4游资（共2张）
-  # hots_user：无游标，全量拉取
-  # hots_trader_detail：按交易日拉取
-  # ========================================
-
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies:
+    - trade_calendar
+    - ths_index_basic
+    fetch_after_time: '18:00'
+    primary_key:
+    - ts_code
+    - trade_date
+    api_name: ths_daily
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=260
+    description: 同花顺概念和行业指数日线行情
   hots_user:
-    cursor_strategy: none                    # 游标策略：无游标
-    update_frequency: monthly                # 更新频率：按月更新
-    fetch_type: full                         # 拉取类型：全量拉取/更新
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "09:00"                # 截止时间判断：09:00
-    primary_key: [account]
-    api_name: hm_list                        # 接口名称：hm_list
-    api_params: {}                           # 接口参数：无参数
-    cursor_field: null                       # 游标字段：无
-    cursor_example: "completed"              # 游标示例：completed表示已完成
-    doc_url: "https://tushare.pro/document/2?doc_id=272"
-    description: "游资账户信息列表"
-
+    cursor_strategy: none
+    update_frequency: monthly
+    fetch_type: full
+    dependencies: []
+    fetch_after_time: 09:00
+    primary_key:
+    - account
+    api_name: hm_list
+    api_params: {}
+    cursor_field: null
+    cursor_example: completed
+    doc_url: https://tushare.pro/document/2?doc_id=272
+    description: 游资账户信息列表
   hots_trader_detail:
-    cursor_strategy: daily_trade             # 游标策略：按天记录（交易日）
-    update_frequency: daily                  # 更新频率：交易日每日拉取
-    fetch_type: incremental                  # 拉取类型：增量拉取
-    dependencies: []                         # 前置表依赖：无
-    fetch_after_time: "18:00"                # 截止时间判断：18:00
-    primary_key: [account, ts_code, trade_date]
-    api_name: hm_detail                      # 接口名称：hm_detail
-    api_params:                              # 接口参数
-      trade_date: "{游标+1}"
-    cursor_field: trade_date                 # 游标字段：trade_date
-    cursor_example: "20260409"               # 游标示例：20260409表示该日期数据已完整获取
-    time_check: true                         # 需要18点时间判断
-    doc_url: "https://tushare.pro/document/2?doc_id=273"
-    description: "游资交易明细数据"
+    cursor_strategy: daily_trade
+    update_frequency: daily
+    fetch_type: incremental
+    dependencies: []
+    fetch_after_time: '18:00'
+    primary_key:
+    - account
+    - ts_code
+    - trade_date
+    api_name: hm_detail
+    api_params:
+      trade_date: '{游标+1}'
+    cursor_field: trade_date
+    cursor_example: '20260409'
+    time_check: true
+    doc_url: https://tushare.pro/document/2?doc_id=273
+    description: 游资交易明细数据

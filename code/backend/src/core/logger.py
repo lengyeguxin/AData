@@ -33,12 +33,19 @@ def get_logger(name: str) -> logging.Logger:
     log_dir = Path('logs')
     log_dir.mkdir(exist_ok=True)
 
-    # 日志文件路径
+    # 主日志文件路径
     log_file = log_dir / 'adata.log'
 
-    # 文件处理器
+    # ERROR日志文件路径
+    error_log_file = log_dir / 'ERROR.log'
+
+    # 主文件处理器（INFO及以上级别）
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
     file_handler.setLevel(logging.INFO)
+
+    # ERROR文件处理器（只记录ERROR及以上级别）
+    error_file_handler = logging.FileHandler(error_log_file, encoding='utf-8')
+    error_file_handler.setLevel(logging.ERROR)
 
     # 控制台处理器
     console_handler = logging.StreamHandler(sys.stdout)
@@ -51,10 +58,12 @@ def get_logger(name: str) -> logging.Logger:
     )
 
     file_handler.setFormatter(formatter)
+    error_file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
 
     # 添加处理器
     logger.addHandler(file_handler)
+    logger.addHandler(error_file_handler)
     logger.addHandler(console_handler)
 
     return logger

@@ -83,6 +83,20 @@ class DataFetcher:
         # 数据拉取开关
         self.fetch_enabled = config.get('fetch', {}).get('enabled', True)
 
+        # 重试配置
+        self.max_retries = config.get('fetch', {}).get('max_retries', 2)
+        self.retry_delay = config.get('fetch', {}).get('retry_delay', 30)
+        self.logger.info(f"重试配置: max_retries={self.max_retries}, retry_delay={self.retry_delay}秒")
+
+        # 无数据记录文件路径（database目录下）
+        import yaml
+        with open('code/backend/config/table_config.yaml', 'r', encoding='utf-8') as f:
+            table_config = yaml.safe_load(f)
+        self.financial_tables = [
+            table for table, cfg in table_config['tables'].items()
+            if cfg.get('cursor_strategy') == 'daily_natural'
+        ]
+
         # 加载交易日历（启动时一次性加载到内存）
         self.trade_calendar = self._load_trade_calendar()
 
@@ -302,7 +316,7 @@ class DataFetcher:
 
     def _fetch_none_strategy(self, table_name: str) -> int:
         """
-        无游标策略（全量拉取）
+        无游标策略（全量拉取，带重试）
 
         Args:
             table_name: 表名
@@ -319,31 +333,36 @@ class DataFetcher:
             self.logger.error(f"{table_name}: 未找到对应的Collector")
             return 0
 
-        # 调用Collector拉取数据
-        try:
+        # 使用重试机制拉取
+        def fetch_none():
             # 不同表的拉取参数不同
             if table_name == 'stock_basic':
-                count = collector.run()
+                return collector.run()
             elif table_name == 'trade_calendar':
                 # 拉取当年数据
                 current_year = datetime.now().year
-                count = collector.run_year(current_year)
+                return collector.run_year(current_year)
             elif table_name == 'index_basic':
-                count = collector.run()
+                return collector.run()
             elif table_name == 'etf_basic':
-                count = collector.run()
+                return collector.run()
             elif table_name == 'ths_index_basic':
-                count = collector.run()
+                return collector.run()
+            elif table_name == 'hots_user':
+                return collector.run()
             else:
                 # 默认全量拉取
-                count = collector.run()
+                return collector.run()
 
+        count = self._retry_fetch_none(table_name, fetch_none)
+
+        if count is not None:
             self.logger.info(f"{table_name}: 全量拉取成功 ({count}条记录)")
             return count
-
-        except Exception as e:
-            self.logger.error(f"{table_name}: 全量拉取失败: {e}")
-            raise
+        else:
+            # 重试失败
+            self.logger.error(f"{table_name}: 全量拉取失败，重试{self.max_retries}次后仍然失败")
+            raise Exception(f"{table_name}: 全量拉取失败，重试{self.max_retries}次后仍然失败")
 
     def _fetch_daily_trade_strategy(self, table_name: str) -> int:
         """
@@ -383,25 +402,103 @@ class DataFetcher:
 
         # 5. 遍历交易日拉取，每拉取成功一个立即更新游标
         total_count = 0
-        for trade_date in trade_dates:
-            try:
-                # 调用Collector拉取该日期数据
-                count = collector.run(trade_date=trade_date)
 
-                total_count += count
+        # 特殊处理：周线和月线的去重拉取
+        if table_name == 'stock_weekly':
+            last_date = None  # 记录上次拉取的周五日期
 
-                if count > 0:
-                    self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
+            for trade_date in trade_dates:
+                # 计算本周五日期
+                friday_date = self._get_friday_date(trade_date)
 
-                # 每拉取成功一个批次，立即更新游标到该日期
-                self.cursor_manager.update_cursor(table_name, trade_date, count)
-                self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
+                # 如果周五日期小于等于last_date，表示本周数据已拉取，跳过
+                if last_date and friday_date <= last_date:
+                    self.logger.info(
+                        f"{table_name}: {trade_date} (周五{friday_date}) 已处理，跳过"
+                    )
+                    continue
 
-            except Exception as e:
-                self.logger.error(f"{table_name}: {trade_date} 拉取失败: {e}")
-                # 拉取失败，不更新游标，下次从失败日期重新开始
-                # 继续拉取下一个日期（允许部分失败）
-                continue
+                # 使用重试机制拉取
+                def fetch_weekly():
+                    return collector.run(trade_date=friday_date)
+
+                count = self._retry_fetch(
+                    table_name, trade_date,
+                    fetch_weekly,
+                    date_type='trade_date'
+                )
+
+                if count is not None:
+                    # 拉取成功
+                    total_count += count
+                    # 更新游标到当前交易日，记录last_date
+                    self.cursor_manager.update_cursor(table_name, trade_date, count)
+                    self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
+                    last_date = friday_date
+                else:
+                    # 重试后仍然失败，停止拉取后续日期
+                    self.logger.error(f"{table_name}: {trade_date} 拉取失败，停止拉取后续日期")
+                    break
+
+        elif table_name == 'stock_monthly':
+            last_date = None  # 记录上次拉取的月末日期
+
+            for trade_date in trade_dates:
+                # 计算本月末日期
+                month_end_date = self._get_month_end_date(trade_date)
+
+                # 如果月末日期小于等于last_date，表示本月数据已拉取，跳过
+                if last_date and month_end_date <= last_date:
+                    self.logger.info(
+                        f"{table_name}: {trade_date} (月末{month_end_date}) 已处理，跳过"
+                    )
+                    continue
+
+                # 使用重试机制拉取
+                def fetch_monthly():
+                    return collector.run(trade_date=month_end_date)
+
+                count = self._retry_fetch(
+                    table_name, trade_date,
+                    fetch_monthly,
+                    date_type='trade_date'
+                )
+
+                if count is not None:
+                    # 拉取成功
+                    total_count += count
+                    # 更新游标到当前交易日，记录last_date
+                    self.cursor_manager.update_cursor(table_name, trade_date, count)
+                    self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
+                    last_date = month_end_date
+                else:
+                    # 重试后仍然失败，停止拉取后续日期
+                    self.logger.error(f"{table_name}: {trade_date} 拉取失败，停止拉取后续日期")
+                    break
+
+        else:
+            # 普通表：正常遍历每个交易日
+            for trade_date in trade_dates:
+                # 使用重试机制拉取
+                def fetch_daily():
+                    return collector.run(trade_date=trade_date)
+
+                count = self._retry_fetch(
+                    table_name, trade_date,
+                    fetch_daily,
+                    date_type='trade_date'
+                )
+
+                if count is not None:
+                    # 拉取成功
+                    total_count += count
+                    # 每拉取成功一个批次，立即更新游标到该日期
+                    self.cursor_manager.update_cursor(table_name, trade_date, count)
+                    self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
+                else:
+                    # 重试后仍然失败，停止拉取后续日期
+                    self.logger.error(f"{table_name}: {trade_date} 拉取失败，停止拉取后续日期")
+                    break
 
         return total_count
 
@@ -440,30 +537,29 @@ class DataFetcher:
         while current_date <= end_datetime:
             date_str = current_date.strftime('%Y%m%d')
 
-            try:
-                # 调用Collector拉取该日期数据
-                # 财务表需要report_type参数
+            # 使用重试机制拉取（财务表允许无数据）
+            def fetch_financial():
                 if table_name in ['income', 'balancesheet', 'cashflow']:
-                    count = collector.run(ann_date=date_str, report_type='1')
+                    return collector.run(ann_date=date_str, report_type='1')
                 else:
-                    count = collector.run(ann_date=date_str)
+                    return collector.run(ann_date=date_str)
 
+            count = self._retry_fetch(
+                table_name, date_str,
+                fetch_financial,
+                date_type='ann_date'
+            )
+
+            if count is not None:
+                # 拉取成功（包括无数据）
                 total_count += count
-
-                if count > 0:
-                    self.logger.info(f"{table_name}: {date_str} 拉取成功 ({count}条)")
-                else:
-                    # 财务表允许无数据（ann_date可能无数据）
-                    self.logger.info(f"{table_name}: {date_str} 无数据（正常）")
-
                 # 每拉取成功一个批次，立即更新游标到该日期（财务表允许无数据更新）
                 self.cursor_manager.update_cursor(table_name, date_str, count)
                 self.logger.info(f"{table_name}: 游标更新为 {date_str}")
-
-            except Exception as e:
-                self.logger.error(f"{table_name}: {date_str} 拉取失败: {e}")
-                # 拉取失败，不更新游标，下次从失败日期重新开始
-                # 继续拉取下一个日期（允许部分失败）
+            else:
+                # 重试后仍然失败（异常），不更新游标，下次从失败日期重新开始
+                self.logger.error(f"{table_name}: {date_str} 拉取失败，停止拉取后续日期")
+                break
 
             current_date += timedelta(days=1)
 
@@ -471,7 +567,7 @@ class DataFetcher:
 
     def _fetch_yearly_strategy(self, table_name: str) -> int:
         """
-        按年策略（增量拉取）
+        按年策略（增量拉取，带重试）
 
         Args:
             table_name: 表名
@@ -496,23 +592,26 @@ class DataFetcher:
             self.logger.error(f"{table_name}: 未找到对应的Collector")
             return 0
 
-        try:
-            # 调用Collector拉取该年数据
+        # 使用重试机制拉取
+        def fetch_yearly():
             if table_name == 'trade_calendar':
-                count = collector.run_year(int(next_year))
+                return collector.run_year(int(next_year))
             else:
-                count = collector.run(year=int(next_year))
+                return collector.run(year=int(next_year))
 
+        count = self._retry_fetch_none(table_name, fetch_yearly)
+
+        if count is not None:
             self.logger.info(f"{table_name}: {next_year}年 拉取成功 ({count}条)")
             return count
-
-        except Exception as e:
-            self.logger.error(f"{table_name}: {next_year}年 拉取失败: {e}")
-            raise
+        else:
+            #. 重试失败
+            self.logger.error(f"{table_name}: {next_year}年 拉取失败，重试{self.max_retries}次后仍然失败")
+            raise Exception(f"{table_name}: {next_year}年 拉取失败，重试{self.max_retries}次后仍然失败")
 
     def _fetch_special_ths_member_strategy(self, table_name: str) -> int:
         """
-        特殊游标策略（ths_concept_member）
+        特殊游标策略（ths_concept_member，带重试）
 
         Args:
             table_name: 表名
@@ -529,17 +628,21 @@ class DataFetcher:
             self.logger.error(f"{table_name}: 未找到对应的Collector")
             return 0
 
-        try:
+        # 使用重试机制拉取
+        def fetch_special():
             # ths_concept_member需要遍历ths_index_basic的所有指数代码
             # 调用ths_member接口拉取成分股
-            count = collector.run()
+            return collector.run()
 
+        count = self._retry_fetch_none(table_name, fetch_special)
+
+        if count is not None:
             self.logger.info(f"{table_name}: 拉取成功 ({count}条)")
             return count
-
-        except Exception as e:
-            self.logger.error(f"{table_name}: 拉取失败: {e}")
-            raise
+        else:
+            # 重试失败
+            self.logger.error(f"{table_name}: 拉取失败，重试{self.max_retries}次后仍然失败")
+            raise Exception(f"{table_name}: 拉取失败，重试{self.max_retries}次后仍然失败")
 
     def _get_collector(self, table_name: str):
         """
@@ -647,6 +750,39 @@ class DataFetcher:
 
         return trade_dates
 
+    def _get_friday_date(self, date_str: str) -> str:
+        """
+        计算某天所在周的周五日期
+
+        Args:
+            date_str: 日期字符串（YYYYMMDD）
+
+        Returns:
+            周五日期（YYYYMMDD）
+        """
+        dt = datetime.strptime(date_str, '%Y%m%d')
+        days_to_friday = 4 - dt.weekday()  # weekday(): 周一=0, 周五=4
+        friday_dt = dt + timedelta(days=days_to_friday)
+        return friday_dt.strftime('%Y%m%d')
+
+    def _get_month_end_date(self, date_str: str) -> str:
+        """
+        计算某天所在月的月末日期
+
+        Args:
+            date_str: 日期字符串（YYYYMMDD）
+
+        Returns:
+            月末日期（YYYYMMDD）
+        """
+        dt = datetime.strptime(date_str, '%Y%m%d')
+        if dt.month == 12:
+            next_month_first = datetime(dt.year + 1, 1, 1)
+        else:
+            next_month_first = datetime(dt.year, dt.month + 1, 1)
+        month_end_dt = next_month_first - timedelta(days=1)
+        return month_end_dt.strftime('%Y%m%d')
+
     def _data_exists(self, table_name: str, date: str) -> bool:
         """
         检查数据是否已存在（避免重复爬取）
@@ -734,6 +870,158 @@ class DataFetcher:
         # DAILY_TRADE和DAILY_NATURAL不应使用此方法
         # 如果被调用，返回空字符串（不会发生）
         return ''
+
+    def _record_no_data_date(self, table_name: str, date_str: str):
+        """
+        记录财务表无数据的日期到文件
+
+        Args:
+            table_name: 表名
+            date_str: 日期（YYYYMMDD）
+        """
+        import json
+
+        # 统一日期格式为YYYY-MM-DD
+        date_formatted = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+
+        # 无数据记录文件路径（database目录下）
+        db_path = Path(self.db_path)
+        no_data_file = db_path.parent / 'no_data_dates.json'
+
+        # 加载现有记录
+        try:
+            if no_data_file.exists():
+                with open(no_data_file, 'r', encoding='utf-8') as f:
+                    records = json.load(f)
+            else:
+                records = {}
+        except Exception as e:
+            self.logger.warning(f"加载无数据记录失败: {e}")
+            records = {}
+
+        # 初始化表记录
+        if table_name not in records:
+            records[table_name] = []
+
+        # 添加日期（去重）
+        if date_formatted not in records[table_name]:
+            records[table_name].append(date_formatted)
+
+            # 按日期排序
+            records[table_name].sort()
+
+            # 保存
+            try:
+                with open(no_data_file, 'w', encoding='utf-8') as f:
+                    json.dump(records, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                self.logger.error(f"保存无数据记录失败: {e}")
+                return
+
+            # 记录WARNING日志
+            self.logger.warning(
+                f"{table_name}: {date_str} 重试{self.max_retries+1}次后仍然无数据，"
+                f"已记录到 no_data_dates.json"
+            )
+
+    def _retry_fetch_none(self, table_name: str, fetch_func) -> Optional[int]:
+        """
+        带重试机制的基础表拉取（无游标、按年、特殊策略）
+
+        Args:
+            table_name: 表名
+            fetch_func: 拉取函数（返回记录数）
+
+        Returns:
+            拉取的记录数（成功），None（失败）
+        """
+        import time
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                count = fetch_func()
+
+                # 检查是否有数据
+                if count > 0:
+                    self.logger.info(
+                        f"{table_name}: 拉取成功 ({count}条记录)"
+                    )
+                    return count
+                else:
+                    # 无数据的情况
+                    if attempt < self.max_retries:
+                        self.logger.warning(
+                            f"{table_name}: 返回空数据，重试 {attempt+1}/{self.max_retries+1}"
+                        )
+                        time.sleep(self.retry_delay)
+                    else:
+                        # 重试后仍然无数据，抛出异常
+                        self.logger.error(
+                            f"{table_name}: 重试{self.max_retries+1}次后仍然无数据"
+                        )
+                        raise Exception(f"{table_name}: 重试{self.max_retries+1}次后仍然无数据")
+
+            except Exception as e:
+                # 任何异常直接抛出（不重试）
+                self.logger.error(
+                    f"{table_name}: 拉取失败: {e}"
+                )
+                raise
+
+        return None
+
+    def _retry_fetch(self, table_name: str, date_str: str, fetch_func, date_type: str = 'trade_date') -> Optional[int]:
+        """
+        带重试机制的数据拉取（按交易日/自然日策略）
+
+        Args:
+            table_name: 表名
+            date_str: 日期字符串
+            fetch_func: 拉取函数（返回记录数）
+            date_type: 日期类型（trade_date 或 ann_date）
+
+        Returns:
+            拉取的记录数（成功），None（失败）
+        """
+        import time
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                count = fetch_func()
+
+                # 检查是否有数据
+                if count > 0:
+                    self.logger.info(f"{table_name}: {date_str} 拉取成功 ({count}条)")
+                    return count
+                else:
+                    # 无数据的情况
+                    if date_type == 'trade_date':
+                        # 行情表无数据是异常
+                        if attempt < self.max_retries:
+                            self.logger.warning(
+                                f"{table_name}: {date_str} 返回空数据，重试 {attempt+1}/{self.max_retries+1}"
+                            )
+                            time.sleep(self.retry_delay)
+                            continue
+                        else:
+                            # 重试后仍然无数据
+                            self.logger.error(
+                                f"{table_name}: {date_str} 重试{self.max_retries+1}次后仍然无数据"
+                            )
+                            return None
+                    else:
+                        # 财务表无数据，记录到文件并返回0
+                        self._record_no_data_date(table_name, date_str)
+                        return 0
+
+            except Exception as e:
+                # 任何异常直接抛出（不重试）
+                self.logger.error(
+                    f"{table_name}: {date_str} 拉取失败: {e}"
+                )
+                raise
+
+        return None
 
     def stop(self):
         """停止数据拉取"""
