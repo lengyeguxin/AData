@@ -27,7 +27,7 @@ env/
 .DS_Store
 
 # Claude配置
-CLAUDE.md
+# CLAUDE.md (removed from gitignore - we want to track it)
 
 # 临时文件
 *.tmp
