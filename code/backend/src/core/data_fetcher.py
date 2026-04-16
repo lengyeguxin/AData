@@ -492,6 +492,8 @@ class DataFetcher:
                 if count is not None:
                     # 拉取成功
                     total_count += count
+                    if count > 0:
+                        self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
                     # 每拉取成功一个批次，立即更新游标到该日期
                     self.cursor_manager.update_cursor(table_name, trade_date, count)
                     self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
@@ -602,7 +604,10 @@ class DataFetcher:
         count = self._retry_fetch_none(table_name, fetch_yearly)
 
         if count is not None:
-            self.logger.info(f"{table_name}: {next_year}年 拉取成功 ({count}条)")
+            # 对于 yearly 策略，游标应该更新为拉取的年份，而不是当前年份
+            new_cursor = next_year  # 使用拉取的年份，而不是当前年份
+            self.cursor_manager.update_cursor(table_name, new_cursor, count)
+            self.logger.info(f"{table_name}: {next_year}年 拉取成功 ({count}条)，游标更新为 {new_cursor}")
             return count
         else:
             #. 重试失败
@@ -654,68 +659,54 @@ class DataFetcher:
         Returns:
             Collector实例
         """
-        # Collector映射表
+        # 直接映射：表名 → (模块名, 类名)
         COLLECTOR_MAP = {
-            'stock_daily': 'DailyCollector',
-            'stock_daily_basic': 'StockDailyBasicCollector',
-            'stock_basic': 'StockBasicCollector',
-            'stock_weekly': 'WeeklyCollector',
-            'stock_monthly': 'MonthlyCollector',
-            'trade_calendar': 'TradeCalendarCollector',
-            'index_basic': 'IndexBasicCollector',
-            'index_daily': 'IndexDailyCollector',
-            'etf_basic': 'ETFBasicCollector',
-            'etf_daily': 'ETFDailyCollector',
-            'etf_adj_factor': 'ETFAdjFactorCollector',
-            'etf_index': 'ETFIndexCollector',
-            'fina_indicator': 'FinaIndicatorCollector',
-            'income': 'IncomeCollector',
-            'balancesheet': 'BalancesheetCollector',
-            'cashflow': 'CashflowCollector',
-            'dividend': 'DividendCollector',
-            'express': 'ExpressCollector',
-            'express_brief': 'ExpressBriefCollector',
-            'ths_index_basic': 'THSIndexBasicCollector',
-            'ths_concept_member': 'THSConceptMemberCollector',
-            'ths_moneyflow': 'THSMoneyflowCollector',
-            'ths_concept_moneyflow': 'THSConceptMoneyflowCollector',
-            'ths_industry_moneyflow': 'THSIndustryMoneyflowCollector',
-            'ths_index_daily': 'THSIndexDailyCollector',
-            'hots_user': 'HotsUserCollector',
-            'hots_trader_detail': 'HotsTraderDetailCollector',
+            'stock_daily': ('daily_collector', 'DailyCollector'),
+            'stock_daily_basic': ('stock_daily_basic_collector', 'StockDailyBasicCollector'),
+            'stock_weekly': ('weekly_collector', 'WeeklyCollector'),
+            'stock_monthly': ('monthly_collector', 'MonthlyCollector'),
+            'stock_basic': ('stock_basic_collector', 'StockBasicCollector'),
+            'trade_calendar': ('trade_calendar_collector', 'TradeCalendarCollector'),
+            'index_basic': ('index_basic_collector', 'IndexBasicCollector'),
+            'index_daily': ('index_daily_collector', 'IndexDailyCollector'),
+            'etf_basic': ('etf_basic_collector', 'ETFBasicCollector'),
+            'etf_daily': ('etf_daily_collector', 'ETFDailyCollector'),
+            'etf_adj_factor': ('etf_adj_factor_collector', 'ETFAdjFactorCollector'),
+            'etf_index': ('etf_index_collector', 'ETFIndexCollector'),
+            'fina_indicator': ('fina_indicator_collector', 'FinaIndicatorCollector'),
+            'income': ('income_collector', 'IncomeCollector'),
+            'balancesheet': ('balancesheet_collector', 'BalancesheetCollector'),
+            'cashflow': ('cashflow_collector', 'CashflowCollector'),
+            'dividend': ('dividend_collector', 'DividendCollector'),
+            'express': ('express_collector', 'ExpressCollector'),
+            'express_brief': ('express_brief_collector', 'ExpressBriefCollector'),
+            'ths_index_basic': ('ths_index_basic_collector', 'THSIndexBasicCollector'),
+            'ths_concept_member': ('ths_concept_member_collector', 'THSConceptMemberCollector'),
+            'ths_moneyflow': ('ths_moneyflow_collector', 'THSMoneyflowCollector'),
+            'ths_concept_moneyflow': ('ths_concept_moneyflow_collector', 'THSConceptMoneyflowCollector'),
+            'ths_industry_moneyflow': ('ths_industry_moneyflow_collector', 'THSIndustryMoneyflowCollector'),
+            'ths_index_daily': ('ths_index_daily_collector', 'THSIndexDailyCollector'),
+            'hots_user': ('hots_user_collector', 'HotsUserCollector'),
+            'hots_trader_detail': ('hots_trader_detail_collector', 'HotsTraderDetailCollector'),
         }
 
-        collector_class_name = COLLECTOR_MAP.get(table_name)
+        collector_info = COLLECTOR_MAP.get(table_name)
 
-        if not collector_class_name:
+        if not collector_info:
             self.logger.warning(f"{table_name}: 未在映射表中找到Collector")
             return None
 
+        module_name, class_name = collector_info
+
         # 动态导入Collector
         try:
-            # 导入Collector模块
             import importlib
-
-            # 根据类名确定模块名（驼峰转下划线，处理缩写）
-            # 例如: TradeCalendarCollector → trade_calendar_collector
-            # 例如: THSIndexBasicCollector → ths_index_basic_collector
-            # 例如: ETFBasicCollector → etf_basic_collector
-            import re
-            # 先移除'Collector'后缀
-            name_without_collector = collector_class_name.replace('Collector', '')
-            # 特殊处理：先替换全大写缩写（THS→ths, ETF→etf）
-            # 然后驼峰转下划线（Index→index_basic）
-            # Step 1: 全大写缩写转小写
-            name_with_abbrevs = re.sub('([A-Z]+)([A-Z][a-z])', r'\1_\2', name_without_collector)
-            # Step 2: 驼峰转下划线（剩余的驼峰部分）
-            name_snake = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name_with_abbrevs).lower()
-            module_name = name_snake + '_collector'
 
             # 导入模块
             module = importlib.import_module(f'src.collectors.{module_name}')
 
             # 获取类
-            collector_class = getattr(module, collector_class_name)
+            collector_class = getattr(module, class_name)
 
             # 创建实例（需要db_path和api）
             # 从config获取tushare配置，创建API实例
@@ -728,8 +719,9 @@ class DataFetcher:
             return collector
 
         except Exception as e:
-            self.logger.error(f"{table_name}: 导入Collector失败: {e}")
+            self.logger.error(f"{table_name}: 导入Collector失败 (模块: {module_name}, 类: {class_name}): {e}")
             return None
+
 
     def _filter_trade_dates(self, start_date: str, end_date: str) -> List[str]:
         """
@@ -778,6 +770,7 @@ class DataFetcher:
         dt = datetime.strptime(date_str, '%Y%m%d')
         if dt.month == 12:
             next_month_first = datetime(dt.year + 1, 1, 1)
+
         else:
             next_month_first = datetime(dt.year, dt.month + 1, 1)
         month_end_dt = next_month_first - timedelta(days=1)
@@ -941,8 +934,21 @@ class DataFetcher:
             try:
                 count = fetch_func()
 
-                # 检查是否有数据
-                if count > 0:
+                # 检查返回值
+                if count is None:
+                    # 返回 None 表示失败
+                    if attempt < self.max_retries:
+                        self.logger.warning(
+                            f"{table_name}: 拉取返回None，重试 {attempt + 1}/{self.max_retries + 1}"
+                        )
+                        time.sleep(self.retry_delay)
+                    else:
+                        # 重试后仍然失败
+                        self.logger.error(
+                            f"{table_name}: 重试{self.max_retries + 1}次后仍然失败"
+                        )
+                        return None
+                elif count > 0:
                     self.logger.info(
                         f"{table_name}: 拉取成功 ({count}条记录)"
                     )
@@ -955,18 +961,24 @@ class DataFetcher:
                         )
                         time.sleep(self.retry_delay)
                     else:
-                        # 重试后仍然无数据，抛出异常
+                        # 重试后仍然无数据
                         self.logger.error(
                             f"{table_name}: 重试{self.max_retries+1}次后仍然无数据"
                         )
-                        raise Exception(f"{table_name}: 重试{self.max_retries+1}次后仍然无数据")
+                        return None
 
             except Exception as e:
-                # 任何异常直接抛出（不重试）
-                self.logger.error(
-                    f"{table_name}: 拉取失败: {e}"
-                )
-                raise
+                if attempt < self.max_retries:
+                    self.logger.warning(
+                        f"{table_name}: 拉取失败: {e},尝试 {attempt+1}/{self.max_retries+1}"
+                    )
+                    time.sleep(self.retry_delay)
+                else:
+                    # 重试后仍然失败
+                    self.logger.error(
+                        f"{table_name}: 重试{self.max_retries+1}次后仍然失败: {e}"
+                    )
+                    return None
 
         return None
 
@@ -1015,11 +1027,17 @@ class DataFetcher:
                         return 0
 
             except Exception as e:
-                # 任何异常直接抛出（不重试）
-                self.logger.error(
-                    f"{table_name}: {date_str} 拉取失败: {e}"
-                )
-                raise
+                if attempt < self.max_retries:
+                    self.logger.warning(
+                        f"{table_name}: {date_str} 拉取失败: {e}, 重试 {attempt + 1}/{self.max_retries + 1}"
+                    )
+                    time.sleep(self.retry_delay)
+                else:
+                    # 重试后仍然失败
+                    self.logger.error(
+                        f"{table_name}: {date_str} 重试{self.max_retries + 1}次后仍然失败: {e}"
+                    )
+                    return None
 
         return None
 

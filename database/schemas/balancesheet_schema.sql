@@ -156,8 +156,8 @@ CREATE TABLE IF NOT EXISTS balancesheet (
     lease_liab REAL,  -- 租赁负债
     contract_assets REAL,  -- 合同资产
     contract_liab REAL,  -- 合同负债
-    accounts_receiv_bill INTEGER,  -- 应收票据及应收账款
-    accounts_pay INTEGER,  -- 应付票据及应付账款
+    accounts_receiv_bill REAL,  -- 应收票据及应收账款
+    accounts_pay REAL,  -- 应付票据及应付账款
     oth_rcv_total REAL,  -- 其他应收款(合计)（元）
     fix_assets_total REAL,  -- 固定资产(合计)(元)
     update_flag VARCHAR(100),  -- 更新标识

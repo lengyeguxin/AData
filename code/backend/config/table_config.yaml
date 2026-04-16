@@ -10,11 +10,10 @@ tables:
     - cal_date
     api_name: trade_cal
     api_params:
-      exchange: SSE/SZSE
-      start_date: '{游标年+1}0101'
-      end_date: '{当前年}1231'
-    cursor_field: start_date
-    cursor_example: '2025'
+      exchange: SSE
+    cursor_field: cal_date
+    start_date: '2021'  # 起始年份（2021年）
+    cursor_example: '2026'
     doc_url: https://tushare.pro/document/2?doc_id=26
     description: 各交易所交易日历，包括开市日期、节假日等
   stock_basic:

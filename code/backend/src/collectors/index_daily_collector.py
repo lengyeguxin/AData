@@ -12,9 +12,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'code' / 'backend'))
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from src.collectors.base_collector import BaseCollector
-from src.core.tushare_apiari import TushareAPI
+from src.core.tushare_api import TushareAPI
 from src.core.transformers import convert_date_format
 
 

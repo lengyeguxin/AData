@@ -8,9 +8,10 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Optional
 
+# 使用绝对路径，避免工作目录问题
 #        /home/my/claude-project/AData/code/frontend/dashboard/metadata.py
-#        parent.parent.parent.parent = /home/my/claude-project/AData
-project_root = Path(__file__).parent.parent.parent.parent
+#        parent.parent.parent = /home/my/claude-project/AData/code
+project_root = Path(__file__).parent.parent.parent
 backend_path = project_root / 'backend'
 sys.path.insert(0, str(backend_path))
 
@@ -28,15 +29,17 @@ class DatabaseMetadata:
 
         Args:
             db_path: 数据库文件路径，默认使用项目根目录下的database/adata.db
-            use_snapshot: 是否使用快照副本进行读取（读写分离）
+            use_snapshot: 是否使用快照副本进行读取（读写）
         """
         if db_path is None:
             # 使用绝对路径，避免工作目录问题
-            project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
+            # parent.parent.parent.parent = AData根目录
+            project_root = Path(__file__).parent.parent.parent.parent
             db_path = str(project_root / 'database' / 'adata.db')
         else:
             # 将相对路径转换为绝对路径（基于项目根目录）
-            project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
+            # parent.parent.parent.parent = AData根目录
+            project_root = Path(__file__).parent.parent.parent.parent
             db_path_obj = Path(db_path)
             if not db_path_obj.is_absolute():
                 db_path = str(project_root / db_path)
@@ -235,35 +238,56 @@ class DatabaseMetadata:
         try:
             # 确定schema文件路径
             project_root = Path(__file__).parent.parent.parent.parent  # 回到AData根目录
+            schemas_dir = project_root / 'database' / 'schemas'
 
-            # 尝试多个schema文件
-            schema_files = [
-                project_root / 'database' / 'schemas' / 'p0_schema.sql',
-                project_root / 'database' / 'schemas' / 'p1_schema.sql',
-                project_root / 'database' / 'schemas' / 'p2_schema.sql',
-                project_root / 'database' / 'schemas' / 'p2_fina_indicator_full.sql',
-                project_root / 'database' / 'schemas' / 'global_cursor_schema.sql'
-            ]
+            # 1. 首先尝试查找对应的schema文件（如stock_daily_schema.sql）
+            schema_file = schemas_dir / f"{table_name}_schema.sql"
 
-            # 遍历所有schema文件查找CREATE TABLE语句
-            for schema_file in schema_files:
+            if schema_file.exists():
+                with open(schema_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    comments = self._extract_comments_from_sql(content, table_name)
+                    if comments:
+                        return comments
+
+            # 2. 如果没有找到，遍历所有schema文件查找
+            import re
+            for schema_file in schemas_dir.glob('*_schema.sql'):
                 if not schema_file.exists():
                     continue
 
                 with open(schema_file, 'r', encoding='utf-8') as f:
                     content = f.read()
 
-                # 查找CREATE TABLE语句
-                import re
-                pattern = rf'CREATE TABLE IF NOT EXISTS {table_name}\s*\((.*?)\);'
-                match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
-
-                if match:
-                    create_statement = f"CREATE TABLE IF NOT EXISTS {table_name} ({match.group(1)});"
-                    return extract_column_comments(create_statement)
+                    comments = self._extract_comments_from_sql(content, table_name)
+                    if comments:
+                        return comments
 
         except Exception:
             pass
+
+        return {}
+
+    def _extract_comments_from_sql(self, content: str, table_name: str) -> Dict[str, str]:
+        """
+        从SQL内容中提取指定表的字段注释
+
+        Args:
+            content: SQL文件内容
+            table_name: 表名
+
+        Returns:
+            字段注释字典 {column_name: comment}
+        """
+        import re
+
+        # 查找CREATE TABLE语句
+        pattern = rf'CREATE TABLE IF NOT EXISTS {table_name}\s*\((.*?)\);'
+        match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+
+        if match:
+            create_statement = f"CREATE TABLE IF NOT EXISTS {table_name} ({match.group(1)});"
+            return extract_column_comments(create_statement)
 
         return {}
 

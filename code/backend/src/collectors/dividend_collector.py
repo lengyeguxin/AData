@@ -115,7 +115,7 @@ class DividendCollector(BaseCollector):
         return f"""
             INSERT INTO dividend (ts_code, end_date, ann_date, div_proc, stk_div, stk_bo_rate, stk_co_rate, cash_div, cash_div_tax, record_date, ex_date, pay_date, div_listdate, imp_ann_date, base_date, base_share, updated_at)
             VALUES ({placeholders})
-            ON CONFLICT (ts_code, ann_date, record_date)
+            ON CONFLICT (ts_code, end_date, ann_date)
             DO UPDATE SET {update_fields}
         """
 

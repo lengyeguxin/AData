@@ -61,7 +61,41 @@ class HotsUserCollector(BaseCollector):
         拉取并保存所有游资账户列表
 
         Returns:
-            保存的记录数
+                       保存的记录数
         """
         data = self.collect_all()
         return self.save(data)
+
+    def _extract_values(self, item: Dict) -> tuple:
+        """
+        提取字段值（严格按照hots_user_schema.sql定义）
+
+        Args:
+            item: API返回结果
+
+        Returns:
+            字段值元组
+        """
+        return (
+            item.get('name'),         # name (主键)
+            item.get('desc'),        # description (原desc列)
+            item.get('orgs'),        # orgs (关联机构)
+        )
+
+    def _build_insert_query(self) -> str:
+        """
+        构建INSERT语句（ON CONFLICT处理）
+
+        Returns:
+            INSERT SQL语句
+        """
+        return """
+            INSERT INTO hots_user (
+                name, description, orgs, updated_at
+            ) VALUES (?, ?, ?, NOW())
+            ON CONFLICT (name)
+            DO UPDATE SET
+                description = excluded.description,
+                orgs = excluded.orgs,
+                updated_at = NOW()
+        """

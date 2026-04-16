@@ -41,7 +41,7 @@ class TradeCalendarCollector(BaseCollector):
 
     def collect_year(self, year: int) -> List[Dict]:
         """
-        拉取指定年份的交易日历（分交易所拉取）
+        拉取指定年份的交易日历（默认SSE即可）
 
         Args:
             year: 年份（如2025）
@@ -50,30 +50,26 @@ class TradeCalendarCollector(BaseCollector):
             交易日历数据列表
 
         示例：
-            collect_year(2025) → 拉取2025年上交所+深交所交易日历
+            collect_year(2025) → 拉取2025年交易日历（默认SSE）
         """
-        all_data = []
+        # YYYYMMDD 格式
+        start_date = f"{year}0101"  # 年初：20210101
+        end_date = f"{year}1231"    # 年末：20211231
 
-        # 分交易所拉取（SSE上交所、SZSE深交所）
-        for exchange in ['SSE', 'SZSE']:
-            start_date = f"{year}0101"
-            end_date = f"{year}1231"
+        self.logger.info(
+            f"拉取 {year}年 交易日历: "
+            f"start_date={start_date}, end_date={end_date}"
+        )
 
-            self.logger.info(
-                f"拉取 {year}年 {exchange} 交易日历: "
-                f"start_date={start_date}, end_date={end_date}"
-            )
+        # 只调用一次API（默认SSE即可，不需要分别调用SSE和SZSE）
+        data = self.collect(
+            exchange='SSE',
+            start_date=start_date
+        )
 
-            data = self.collect(
-                exchange=exchange,
-                start_date=start_date,
-                end_date=end_date
-            )
+        self.logger.info(f"拉取完成: {year}年 共{len(data)}条交易日历")
+        return data
 
-            all_data.extend(data)
-
-        self.logger.info(f"拉取完成: {year}年 共{len(all_data)}条交易日历")
-        return all_data
 
     def _extract_values(self, item: Dict) -> tuple:
         """
@@ -120,5 +116,9 @@ class TradeCalendarCollector(BaseCollector):
         Returns:
             保存的记录数
         """
-        data = self.collect_year(year)
-        return self.save(data)
+        try:
+            data = self.collect_year(year)
+            return self.save(data)
+        except Exception as e:
+            self.logger.error(f"run_year({year}) 失败: {e}")
+            raise
