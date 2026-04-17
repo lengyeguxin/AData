@@ -11,12 +11,17 @@ tushare:
   token: YOUR_TUSHARE_TOKEN_HERE  # 请替换为您的Tushare Token
   api_url: http://8.136.22.187:8010/  # Tushare代理API地址（推荐使用新代理）
   rate_limit: 500  # 每分钟500次（1万积分）
+  random_sleep_min: 1  # 随机休眠最小值（秒）
+  random_sleep_max: 0  # 随机休眠最大值（秒），设置为0表示禁用休眠
 
 # 数据拉取配置
 fetch:
   enabled: true                    # 数据拉取开关（默认开启）
   start_date: "20210101"           # 最早开始时间（全局默认）
   check_interval: 60               # 检测间隔（分钟）
+  max_retries: 2                   # 失败重试次数
+  retry_delay: 60                  # 重试间隔（秒）
+  timeout: 60                      # API超时（VIP需要60s）
 
 # 快照配置
 snapshot:
