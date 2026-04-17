@@ -1,0 +1,26 @@
+# AData Dashboard配置文件
+# 使用方法：复制此文件为 dashboard_config.yaml 并根据需要修改配置
+# cp dashboard:config.yaml.example dashboard_config.yaml
+
+# 数据库配置
+database:
+  path: database/adata_snapshot.db  # 快照数据库路径（只读）
+  type: duckdb                      # 数据库类型
+
+# 服务器配置
+server:
+  host: localhost                    # 监听地址（localhost/0.0.0.0）
+  port: 8501                        # 监听端口
+  debug: false                       # 是否开启调试模式
+
+# 日志配置
+logging:
+  level: INFO                       # 日志级别（DEBUG/INFO/WARNING/ERROR）
+  file: logs/dashboard.log           # 日志文件路径
+  max_size: 10MB                    # 单个日志文件最大大小
+  backup_count: 5                    # 保留的日志文件备份数量
+
+# 主题配置
+theme:
+  base: light                        # 主题颜色（light/dark）
+  primaryColor: "#FF6B6B"           # 主色调
