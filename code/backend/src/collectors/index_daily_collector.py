@@ -68,20 +68,11 @@ class IndexDailyCollector(BaseCollector):
 
                 index_codes = config.get('tables', {}).get('index_daily', {}).get('index_codes', [])
 
-                if not index_codes:
-                    self.logger.warning("未配置index_codes，将拉取所有指数")
-
-        # 如果配置为空或未配置，则从index_basic表获取所有指数代码
         if not index_codes:
-            from src.core.database import Database
-            db = Database(self.db_path)
+            self.logger.error("未配置index_codes，请在table_config.yaml中配置")
+            return []
 
-            index_codes = db.execute("""
-                SELECT ts_code FROM index_basic ORDER BY ts_code
-            """)
-
-            db.close()
-            self.logger.info(f"从index_basic表获取{len(index_codes)}个指数代码")
+        self.logger.info(f"从配置文件获取{len(index_codes)}个指数代码")
 
         all_data = []
 
@@ -161,6 +152,25 @@ class IndexDailyCollector(BaseCollector):
         Returns:
             保存的记录数
         """
+        # 获取指数代码列表（从配置文件读取）
+        from pathlib import Path
+        import yaml
+
+        config_file = Path(__file__).parent.parent.parent / 'code' / 'backend' / 'config' / 'table_config.yaml'
+        index_codes = []
+
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+
+            index_codes = config.get('tables', {}).get('index_daily', {}).get('index_codes', [])
+
+        if not index_codes:
+            self.logger.error("未配置index_codes，请在table_config.yaml中配置")
+            return 0
+
+        self.logger.info(f"从配置文件获取{len(index_codes)}个指数代码")
+
         # 按指数逐个拉取、保存、更新游标
         total_count = 0
         success_indices = []  # 记录成功的指数

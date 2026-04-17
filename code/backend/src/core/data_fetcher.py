@@ -481,7 +481,11 @@ class DataFetcher:
             for trade_date in trade_dates:
                 # 使用重试机制拉取
                 def fetch_daily():
-                    return collector.run(trade_date=trade_date)
+                    # index_daily特殊处理：使用run_by_date方法
+                    if table_name == 'index_daily':
+                        return collector.run_by_date(trade_date=trade_date)
+                    else:
+                        return collector.run(trade_date=trade_date)
 
                 count = self._retry_fetch(
                     table_name, trade_date,
