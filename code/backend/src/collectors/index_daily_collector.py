@@ -161,8 +161,9 @@ class IndexDailyCollector(BaseCollector):
 
         # __file__ 在 code/backend/src/collectors/index_daily_collector.py
         # parent = collectors, parent.parent = src, parent.parent.parent = code/backend
-        # 所以需要再上一级到项目根目录，然后找 config/table_config.yaml
-        config_file = Path(__file__).parent.parent.parent.parent / 'config' / 'table_config.yaml'
+        # 再上一级 = AData，然后找 config/table_config.yaml
+        config_file = Path(__file__).parent.parent.parent / 'config' / 'table_config.yaml'
+        self.logger.info(f"计算的配置路径为：{config_file}")
         index_codes = []
 
         if config_file.exists():
@@ -189,19 +190,20 @@ class IndexDailyCollector(BaseCollector):
                 data = self.collect(ts_code=ts_code, trade_date=trade_date)
 
                 if data:
-                    # 立即保存（避免竞态条件，单个指数单独插入）
+                    # 使用单个连接保存（避免频繁创建/关闭连接）
+                    from src.core.database import Database
+                    db = Database(self.db_path)
                     count = 0
                     for item in data:
                         try:
                             record = self._extract_values(item)
                             query = self._build_insert_query()
-                            db = Database(self.db_path)
                             db.execute(query, record)
-                            db.close()
                             count += 1
                         except Exception as e:
                             self.logger.error(f"指数{ts_code}: {trade_date} 保存单条失败: {e}")
 
+                    db.close()
                     total_count += count
                     success_indices.append(ts_code)
                     self.logger.info(f"指数{ts_code}: {trade_date} 保存成功 ({count}条)")

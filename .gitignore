@@ -37,6 +37,7 @@ env/
 *.yaml
 !*.example.yaml
 !table_config.yaml
+!dashboard_config.yaml  # Dashboard配置不包含敏感信息，可以提交
 
 # 测试覆盖率
 .coverage
