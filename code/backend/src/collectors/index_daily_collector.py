@@ -61,7 +61,10 @@ class IndexDailyCollector(BaseCollector):
             from pathlib import Path
             import yaml
 
-            config_file = Path(__file__).parent.parent.parent / 'code' / 'backend' / 'config' / 'table_config.yaml'
+            # __file__ 在 code/backend/src/collectors/index_daily_collector.py
+            # parent = collectors, parent.parent = src, parent.parent.parent = code/backend
+            # 所以需要再上一级到项目根目录，然后找 config/table_config.yaml
+            config_file = Path(__file__).parent.parent.parent.parent / 'config' / 'table_config.yaml'
             if config_file.exists():
                 with open(config_file, 'r', encoding='utf-8') as f:
                     config = yaml.safe_load(f)
@@ -156,7 +159,10 @@ class IndexDailyCollector(BaseCollector):
         from pathlib import Path
         import yaml
 
-        config_file = Path(__file__).parent.parent.parent / 'code' / 'backend' / 'config' / 'table_config.yaml'
+        # __file__ 在 code/backend/src/collectors/index_daily_collector.py
+        # parent = collectors, parent.parent = src, parent.parent.parent = code/backend
+        # 所以需要再上一级到项目根目录，然后找 config/table_config.yaml
+        config_file = Path(__file__).parent.parent.parent.parent / 'config' / 'table_config.yaml'
         index_codes = []
 
         if config_file.exists():
