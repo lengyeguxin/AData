@@ -192,7 +192,7 @@ class GlobalCursorManager:
 
     def should_fetch(self, table_name: str) -> bool:
         """
-        判断是否需要拉取（检查游标+截至时间+前置表）
+        判断是否需要拉取（单线程：只通过游标值判断）
 
         Args:
             table_name: 表名
@@ -203,23 +203,23 @@ class GlobalCursorManager:
         cursor = self.get_cursor(table_name)
 
         if not cursor:
-            return False
+            return True  # 首次拉取
 
-        # 1. 检查状态（如果正在运行，不拉取）
-        if cursor['status'] == self.STATUS_RUNNING:
-            return False
+        # 只通过 cursor_value 判断是否需要拉取
+        # None：从未拉取过，需要拉取
+        # 有值：已拉取过，通过日期/时间判断是否需要更新
+        cursor_value = cursor['cursor_value']
 
-        # 2. 检查前置表依赖
-        if not self.check_dependencies(table_name):
-            return False
+        if cursor_value is None or cursor_value == '':
+            return True  # 从未拉取过，需要拉取
 
-        # 3. 检查截至时间（18点判断）
-        # 注意：首次拉取（status=pending）跳过时间检查，允许任何时间拉取
+        # 已拉取过，检查是否需要更新（18点判断等）
+        # 注意：首次拉取跳过时间检查，允许任何时间拉取
         if cursor['status'] != self.STATUS_PENDING:
             if not self.check_fetch_time(table_name):
                 return False
 
-        # 4. 检查游标是否已是最新的
+        # 检查游标是否已是最新的（避免重复拉取）
         if self._is_cursor_up_to_date(table_name, cursor):
             return False
 
