@@ -1,29 +1,27 @@
 """
-日志系统
+Dashboard日志系统
 
-提供统一的日志记录功能
+提供Dashboard专用的日志记录功能，日志输出到独立的文件
 """
 
 import logging
 import sys
 import yaml
 from pathlib import Path
-from datetime import datetime
 from typing import Dict, Any, Optional
 
 
-def get_logger(name: str, config_path: Optional[str] = None) -> logging.Logger:
+def setup_dashboard_logger(config_path: Optional[str] = None) -> logging.Logger:
     """
-    获取Logger实例
+    设置Dashboard日志系统
 
     Args:
-        name: Logger名称
-        config_path: 配置文件路径（可选，默认使用code/backend/config/config.yaml）
+        config_path: 配置文件路径（可选，默认使用dashboard/config/dashboard_config.yaml）
 
     Returns:
         Logger实例
     """
-    logger = logging.getLogger(name)
+    logger = logging.getLogger('dashboard')
 
     # 如果logger已配置，直接返回
     if logger.handlers:
@@ -32,7 +30,7 @@ def get_logger(name: str, config_path: Optional[str] = None) -> logging.Logger:
     # 加载配置文件
     if config_path is None:
         # 默认配置文件路径
-        config_path = str(Path(__file__).parent.parent.parent / 'config' / 'config.yaml')
+        config_path = str(Path(__file__).parent / 'dashboard_config.yaml')
 
     log_config = _load_logging_config(config_path)
 
@@ -45,8 +43,8 @@ def get_logger(name: str, config_path: Optional[str] = None) -> logging.Logger:
     log_dir.mkdir(exist_ok=True)
 
     # 从配置读取日志文件路径
-    log_file_name = log_config.get('file', 'adata-backend.log')
-    error_log_file_name = log_config.get('error_file', 'adata-backend-error.log')
+    log_file_name = log_config.get('file', 'dashboard.log')
+    error_log_file_name = log_config.get('error_file', 'dashboard-error.log')
 
     log_file = log_dir / Path(log_file_name).name
     error_log_file = log_dir / Path(error_log_file_name).name
@@ -101,13 +99,23 @@ def _load_logging_config(config_path: str) -> Dict[str, Any]:
             # 配置文件不存在，返回默认配置
             return {
                 'level': 'INFO',
-                'file': 'adata-backend.log',
-                'error_file': 'adata-backend-error.log'
+                'file': 'dashboard.log',
+                'error_file': 'dashboard-error.log'
             }
     except Exception as e:
         # 加载失败，返回默认配置
         return {
             'level': 'INFO',
-            'file': 'adata-backend.log',
-            'error_file': 'adata-backend-error.log'
+            'file': 'dashboard.log',
+            'error_file': 'dashboard-error.log'
         }
+
+
+def get_dashboard_logger() -> logging.Logger:
+    """
+    获取Dashboard Logger实例（单例模式）
+
+    Returns:
+        Logger实例
+    """
+    return setup_dashboard_logger()

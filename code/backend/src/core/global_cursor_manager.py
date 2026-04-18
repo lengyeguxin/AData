@@ -213,16 +213,13 @@ class GlobalCursorManager:
         if cursor_value is None or cursor_value == '':
             return True  # 从未拉取过，需要拉取
 
-        # 已拉取过，检查是否需要更新（18点判断等）
-        # 注意：首次拉取跳过时间检查，允许任何时间拉取
-        if cursor['status'] != self.STATUS_PENDING:
-            if not self.check_fetch_time(table_name):
-                return False
-
-        # 检查游标是否已是最新的（避免重复拉取）
+        # 已拉取过，检查游标是否最新
+        # 游标最新 → 不拉取
+        # 游标不是最新 → 立即拉取（忽略时间限制）
         if self._is_cursor_up_to_date(table_name, cursor):
             return False
 
+        # 游标不是最新（有历史gap），直接允许拉取
         return True
 
     def check_dependencies(self, table_name: str) -> bool:
@@ -631,13 +628,44 @@ class GlobalCursorManager:
             return cursor_value == current_year
 
         elif cursor_strategy == self.CURSOR_STRATEGY_NONE:
-            # 一次性数据：检查是否已完成
-            return cursor_value == 'completed'
+            # 一次性数据（基础信息表）：月更新策略
+            # 检查last_fetch_time是否在本月
+            last_fetch_time = cursor.get('last_fetch_time')
+            if last_fetch_time:
+                try:
+                    # 解析last_fetch_time
+                    if isinstance(last_fetch_time, str):
+                        last_date = datetime.strptime(last_fetch_time.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                    else:
+                        last_date = last_fetch_time
+
+                    # 比较月份：同月则不更新，不同月则更新
+                    current_month = now.strftime('%Y%m')
+                    last_month = last_date.strftime('%Y%m')
+                    return current_month == last_month
+                except:
+                    return False
+            return False  # 没有last_fetch_time，需要拉取
 
         elif cursor_strategy == self.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
-            # 特殊游标（ths_concept_member）：检查是否遍历完所有指数
-            # 这里需要额外逻辑判断是否遍历完ths_index_basic的所有指数
-            return False  # 简化处理，总是需要检查
+            # 特殊游标（ths_concept_member）：月更新策略
+            # 检查last_fetch_time是否在本月
+            last_fetch_time = cursor.get('last_fetch_time')
+            if last_fetch_time:
+                try:
+                    # 解析last_fetch_time
+                    if isinstance(last_fetch_time, str):
+                        last_date = datetime.strptime(last_fetch_time.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                    else:
+                        last_date = last_fetch_time
+
+                    # 比较月份：同月则不更新，不同月则更新
+                    current_month = now.strftime('%Y%m')
+                    last_month = last_date.strftime('%Y%m')
+                    return current_month == last_month
+                except:
+                    return False
+            return False  # 没有last_fetch_time，需要拉取
 
         return False
 

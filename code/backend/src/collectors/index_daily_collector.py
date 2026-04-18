@@ -84,6 +84,13 @@ class IndexDailyCollector(BaseCollector):
             self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}")
 
             try:
+                # 每次请求前随机休眠50～200毫秒，避免API请求过于密集
+                import time
+                import random
+                sleep_ms = random.randint(50, 200)
+                time.sleep(sleep_ms / 1000.0)
+                self.logger.debug(f"请求前休眠 {sleep_ms}ms")
+
                 # 严格按照CSV文档参数：ts_code + trade_date
                 data = self.collect(ts_code=ts_code, trade_date=trade_date)
 
@@ -186,6 +193,13 @@ class IndexDailyCollector(BaseCollector):
             self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}, trade_date={trade_date}")
 
             try:
+                # 每次请求前随机休眠50～200毫秒，避免API请求过于密集
+                import time
+                import random
+                sleep_ms = random.randint(50, 200)
+                time.sleep(sleep_ms / 1000.0)
+                self.logger.debug(f"请求前休眠 {sleep_ms}ms")
+
                 # 拉取该指数数据
                 data = self.collect(ts_code=ts_code, trade_date=trade_date)
 
@@ -216,9 +230,10 @@ class IndexDailyCollector(BaseCollector):
                 continue
 
         # 检查：所有指数都成功
-        if len(success_indices) != len(index_codes):
-            self.logger.error(f"拉取完成: trade_date={trade_date}, 失败{len(success_indices)}/{len(index_codes)}个指数，原因：部分指数失败")
-            raise Exception(f"部分指数拉取失败: {len(success_indices)}/{len(index_codes)}个指数")
+        failed_count = len(index_codes) - len(success_indices)
+        if failed_count > 0:
+            self.logger.error(f"拉取完成: trade_date={trade_date}, 失败{failed_count}/{len(index_codes)}个指数，原因：部分指数失败")
+            raise Exception(f"部分指数拉取失败: {failed_count}/{len(index_codes)}个指数")
 
         self.logger.info(f"拉取完成: trade_date={trade_date}, 成功{total_count}/{len(index_codes) * 100}条记录")
         return total_count

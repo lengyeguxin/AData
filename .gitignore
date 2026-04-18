@@ -1,7 +1,9 @@
 # 数据库文件
 *.db
+*.db.*
 *.db.wal
 database/*.db
+database/*.db.*
 adata.db.backup*
 
 # 测试报告

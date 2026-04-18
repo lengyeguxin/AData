@@ -8,9 +8,12 @@ Dashboard配置管理模块
 import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-import structlog
+import logging
 
-logger = structlog.get_logger()
+# 使用Dashboard专用logger
+from dashboard.logger import get_dashboard_logger
+
+logger = get_dashboard_logger()
 
 
 class DashboardConfigManager:

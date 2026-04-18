@@ -198,7 +198,7 @@ tables:
     - 000016.SH
     - 000905.SH
     - 000688.SH
-    - 000680.SH
+    - 399680.SZ
   etf_daily:
     cursor_strategy: daily_trade
     update_frequency: daily

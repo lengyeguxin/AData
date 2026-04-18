@@ -12,6 +12,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# 初始化Dashboard日志系统
+from dashboard.logger import setup_dashboard_logger
+setup_dashboard_logger()
+
 from dashboard.metadata import DatabaseMetadata
 from dashboard.config import get_dashboard_config_manager
 from dashboard.components.overview import render_overview

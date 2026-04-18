@@ -64,6 +64,8 @@ class THSConceptMemberCollector(BaseCollector):
         self.logger.info(f"找到{len(index_codes)}个概念指数代码")
 
         all_data = []
+        failed_indices = []  # 记录失败的指数及原因
+
         for i, (ts_code,) in enumerate(index_codes):
             self.logger.info(f"[{i+1}/{len(index_codes)}] 拉取概念板块成分: ts_code={ts_code}")
 
@@ -72,11 +74,21 @@ class THSConceptMemberCollector(BaseCollector):
                 all_data.extend(data)
                 self.logger.info(f"  拉取{len(data)}条成分股数据")
             except Exception as e:
-                self.logger.error(f"  拉取失败: {e}")
+                error_msg = str(e)
+                self.logger.error(f"  拉取失败: {error_msg}")
+                failed_indices.append((ts_code, error_msg))
                 # 继续拉取下一个概念指数
-                continue
 
-        self.logger.info(f"遍历完成: 共拉取{len(all_data)}条概念板块成分数据")
+        # 遍历完成，记录失败信息
+        if failed_indices:
+            self.logger.warning(f"遍历完成但有失败: 成功{len(index_codes)-len(failed_indices)}/{len(index_codes)}个指数")
+            for ts_code, error in failed_indices[:10]:  # 只显示前10个失败
+                self.logger.warning(f"  失败指数: {ts_code} - {error}")
+            if len(failed_indices) > 10:
+                self.logger.warning(f"  ... 还有{len(failed_indices)-10}个失败")
+        else:
+            self.logger.info(f"遍历完成: 全部成功，共拉取{len(all_data)}条概念板块成分数据")
+
         return all_data
 
     def _extract_values(self, item: Dict) -> tuple:

@@ -40,6 +40,7 @@ scheduler:
 # 日志配置
 logging:
   level: INFO
-  file: logs/adata.log
+  file: logs/adata-backend.log
+  error_file: logs/adata-backend-error.log
   max_size: 10MB
   backup_count: 5

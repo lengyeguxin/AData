@@ -231,9 +231,10 @@ class DataFetcher:
         # 1. 判断是否需要拉取（游标+前置表+时间）
         if not self.cursor_manager.should_fetch(table_name):
             cursor = self.cursor_manager.get_cursor(table_name)
+            fetch_time = cursor.get('fetch_after_time', 'N/A')
             self.logger.info(
-                f"{table_name}: 游标已是最新或前置表未完成"
-                f"(cursor={cursor['cursor_value']}, status={cursor['status']})"
+                f"{table_name}: 未到拉取时间或游标已最新"
+                f"(cursor={cursor['cursor_value']}, status={cursor['status']}, fetch_after={fetch_time})"
             )
             return
 
@@ -872,6 +873,10 @@ class DataFetcher:
 
         elif cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_NONE:
             # 无游标，标记为completed
+            return 'completed'
+
+        elif cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
+            # 特殊游标（ths_concept_member），遍历完成后标记为completed
             return 'completed'
 
         # DAILY_TRADE和DAILY_NATURAL不应使用此方法
