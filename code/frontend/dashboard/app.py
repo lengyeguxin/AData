@@ -22,7 +22,6 @@ from dashboard.components.overview import render_overview
 from dashboard.components.table_list import render_table_list
 from dashboard.components.table_detail import render_table_detail
 from dashboard.components.charts import render_charts
-from dashboard.components.settings import render_settings
 
 
 # 页面配置
@@ -54,8 +53,7 @@ if 'selected_table' not in st.session_state:
 page_mapping = {
     "整体概览": "overview",
     "数据表列表": "table_list",
-    "图表分析": "charts",
-    "系统配置": "settings"
+    "图表分析": "charts"
 }
 
 page_mapping_reverse = {v: k for k, v in page_mapping.items()}
@@ -77,8 +75,8 @@ current_view = page_mapping_reverse.get(display_page, "整体概览")
 
 selected_view = st.sidebar.radio(
     "选择视图",
-    ["整体概览", "数据表列表", "图表分析", "系统配置"],
-    index=["整体概览", "数据表列表", "图表分析", "系统配置"].index(current_view),
+    ["整体概览", "数据表列表", "图表分析"],
+    index=["整体概览", "数据表列表", "图表分析"].index(current_view),
     key="navigation_select",
     on_change=on_navigation_change
 )
@@ -147,9 +145,6 @@ try:
 
     elif st.session_state['current_page'] == 'charts':
         render_charts(metadata)
-
-    elif st.session_state['current_page'] == 'settings':
-        render_settings(config_manager)
 
 except Exception as e:
     st.error(f"页面加载失败: {e}")
