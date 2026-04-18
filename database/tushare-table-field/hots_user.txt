@@ -1,0 +1,4 @@
+名称	类型	默认显示	描述
+name	str	Y	游资名称
+desc	str	Y	说明
+orgs	None	Y	关联机构
