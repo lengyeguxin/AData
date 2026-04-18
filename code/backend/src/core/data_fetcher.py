@@ -7,6 +7,7 @@
 - 数据存在性检查：避免重复爬取
 - 18点时间判断：确保数据完整性
 - 按优先级顺序拉取：P0 → P1 → P2 → P3 → P4
+- 运行状态管理：全局running标志，支持调度器检查
 """
 
 import sys
@@ -23,6 +24,9 @@ from src.core.logger import get_logger
 
 class DataFetcher:
     """统一数据拉取控制器"""
+
+    # 全局运行状态标志（类变量，供调度器检查）
+    running = False
 
     # 前置表固定顺序（必须先拉取）
     PRIORITY_ORDER = {
@@ -105,26 +109,46 @@ class DataFetcher:
         启动数据拉取（入口方法）
 
         流程：
-        1. 检查fetch.enabled开关
-        2. 加载交易日历到内存
-        3. 按优先级顺序拉取（P0 → P1 → P2 → P3 → P4）
-        4. 每张表判断游标进度，断点续传
-        5. 更新游标（根据策略决定更新时机）
+        1. 设置running标志为True（表示正在拉取）
+        2. 检查fetch.enabled开关
+        3. 加载交易日历到内存
+        4. 按优先级顺序拉取（P0 → P1 → P2 → P3 → P4）
+        5. 每张表判断游标进度，断点续传
+        6. 更新游标（根据策略决定更新时机）
+        7. 设置running标志为False（表示拉取完成）
         """
-        if not self.fetch_enabled:
-            self.logger.info("数据拉取已禁用（fetch.enabled=false）")
-            return
+        # 设置运行状态（正在拉取）
+        DataFetcher.running = True
+        self.logger.info("✓ 数据拉取任务启动（running=True）")
 
-        self.logger.info("=" * 80)
-        self.logger.info("数据拉取控制器启动")
-        self.logger.info("=" * 80)
-        self.logger.info(f"启动时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        self.logger.info(f"数据库路径: {self.db_path}")
-        self.logger.info(f"交易日历已加载: {len(self.trade_calendar)}个交易日")
-        self.logger.info("")
+        try:
+            if not self.fetch_enabled:
+                self.logger.info("数据拉取已禁用（fetch.enabled=false）")
+                DataFetcher.running = False
+                return
 
-        # 按优先级顺序拉取所有表
-        self._fetch_all_tables()
+            self.logger.info("=" * 80)
+            self.logger.info("数据拉取控制器启动")
+            self.logger.info("=" * 80)
+            self.logger.info(f"启动时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            self.logger.info(f"数据库路径: {self.db_path}")
+            self.logger.info(f"交易日历已加载: {len(self.trade_calendar)}个交易日")
+            self.logger.info("")
+
+            # 按优先级顺序拉取所有表
+            self._fetch_all_tables()
+
+        except Exception as e:
+            self.logger.error(f"数据拉取异常: {e}")
+            # 异常情况下也要设置running=False，避免调度器一直跳过
+            DataFetcher.running = False
+            self.logger.info("✗ 数据拉取异常终止（running=False）")
+            raise
+
+        finally:
+            # 确保无论如何都设置running=False（拉取完成）
+            DataFetcher.running = False
+            self.logger.info("✓ 数据拉取任务完成（running=False）")
 
     def _load_trade_calendar(self) -> List[str]:
         """

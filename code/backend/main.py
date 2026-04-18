@@ -206,7 +206,7 @@ def main():
         return
 
     # 模式3：集成启动（默认）
-    logger.info("启动模式：集成启动（数据拉取+定时任务）")
+    logger.info("启动模式：集成启动（先拉取数据，再启动调度器）")
 
     # 4. 立即创建快照（如果指定）
     if args.snapshot:
@@ -217,21 +217,21 @@ def main():
         else:
             logger.info("快照功能已禁用（snapshot.enabled=false）")
 
-    # 5. 检查数据拉取开关
+    # 5. 项目启动时，先进行一次数据拉取
     fetch_enabled = config.get('fetch', {}).get('enabled', True)
 
     if not args.no_fetch and fetch_enabled:
-        logger.info("数据拉取已启用（fetch.enabled=true）")
-        logger.info("开始拉取数据...")
+        logger.info("项目启动，开始首次数据拉取...")
+        logger.info("设置 running=True（数据正在拉取）")
 
-        # 使用DataFetcher拉取数据
+        # 使用DataFetcher拉取数据（会自动设置running状态）
         fetcher = DataFetcher(db_path, config)
         fetcher.start()
-        logger.info("✓ 数据拉取完成")
+        logger.info("✓ 首次数据拉取完成（running=False）")
     else:
-        logger.info("数据拉取已禁用（fetch.enabled=false 或 --no-fetch）")
+        logger.info("首次数据拉取已禁用（fetch.enabled=false 或 --no-fetch）")
 
-    # 6. 启动定时任务调度器
+    # 6. 启动定时任务调度器（快照/checkpoint立即运行，数据拉取按check_interval检查）
     scheduler_config = config.get('scheduler', {})
     if scheduler_config.get('enabled', True):
         logger.info("启动定时任务调度器...")
@@ -245,8 +245,13 @@ def main():
         for job_id, job_info in status.items():
             logger.info(f"  {job_info['name']}: 下次执行 {job_info['next_run_time']}")
 
-        # 保持运行
+        # 调度器会每隔check_interval检查running状态并执行数据拉取
+        logger.info("调度器将每隔check_interval分钟检查running状态并拉取数据")
+        logger.info("  - running=True → 跳过（任务正在运行）")
+        logger.info("  - running=False → 启动拉取（任务未运行）")
         logger.info("按Ctrl+C停止...")
+
+        # 保持运行
         try:
             import time
             while True:
