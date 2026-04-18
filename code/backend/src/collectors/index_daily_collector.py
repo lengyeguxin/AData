@@ -80,7 +80,7 @@ class IndexDailyCollector(BaseCollector):
         all_data = []
 
         # 遍历所有指数代码
-        for i, (ts_code,) in enumerate(index_codes):
+        for i, ts_code in enumerate(index_codes):
             self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}")
 
             try:
@@ -182,7 +182,7 @@ class IndexDailyCollector(BaseCollector):
         total_count = 0
         success_indices = []  # 记录成功的指数
 
-        for i, (ts_code,) in enumerate(index_codes):
+        for i, ts_code in enumerate(index_codes):
             self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}, trade_date={trade_date}")
 
             try:

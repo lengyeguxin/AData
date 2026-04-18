@@ -498,6 +498,16 @@ class DataFetcher:
                     total_count += count
                     if count > 0:
                         self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
+                    elif count == 0:
+                        # 无数据但不算失败（同花顺和游资早期可能没有数据）
+                        if table_name in ['ths_moneyflow', 'ths_concept_moneyflow', 'ths_industry_moneyflow', 'hots_trader_detail']:
+                            self.logger.warning(f"{table_name}: {trade_date} 无数据（早期可能无数据，跳过）")
+                            # 记录无数据日期
+                            self._record_no_data_date(table_name, trade_date)
+                            # 更新游标到该日期，下次继续
+                            self.cursor_manager.update_cursor(table_name, trade_date, 0)
+                            self.logger.info(f"{table_name}: 游标更新为 {trade_date}（无数据）")
+                            continue
                     # 每拉取成功一个批次，立即更新游标到该日期
                     self.cursor_manager.update_cursor(table_name, trade_date, count)
                     self.logger.info(f"{table_name}: 游标更新为 {trade_date}")

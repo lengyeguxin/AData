@@ -121,8 +121,7 @@ class THSConceptMemberCollector(BaseCollector):
             DO UPDATE SET {update_fields}
         """
 
-
-def run(self) -> int:
+    def run(self) -> int:
         """
         遍历并保存所有概念板块成分股
 
