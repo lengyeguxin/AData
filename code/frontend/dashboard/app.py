@@ -23,7 +23,6 @@ from dashboard.components.table_list import render_table_list
 from dashboard.components.table_detail import render_table_detail
 from dashboard.components.charts import render_charts
 from dashboard.components.settings import render_settings
-from dashboard.components.fetch_control import render_fetch_control
 
 
 # 页面配置
@@ -56,7 +55,6 @@ page_mapping = {
     "整体概览": "overview",
     "数据表列表": "table_list",
     "图表分析": "charts",
-    "数据拉取控制": "fetch_control",
     "系统配置": "settings"
 }
 
@@ -79,8 +77,8 @@ current_view = page_mapping_reverse.get(display_page, "整体概览")
 
 selected_view = st.sidebar.radio(
     "选择视图",
-    ["整体概览", "数据表列表", "图表分析", "数据拉取控制", "系统配置"],
-    index=["整体概览", "数据表列表", "图表分析", "数据拉取控制", "系统配置"].index(current_view),
+    ["整体概览", "数据表列表", "图表分析", "系统配置"],
+    index=["整体概览", "数据表列表", "图表分析", "系统配置"].index(current_view),
     key="navigation_select",
     on_change=on_navigation_change
 )
@@ -127,8 +125,7 @@ def get_metadata():
 
 @st.cache_resource
 def get_config_manager():
-    """缓存配置管理器（使用旧的ConfigManager用于数据拉取控制等）"""
-    # 保留旧的ConfigManager以兼容数据拉取控制等功能
+    """缓存配置管理器"""
     from dashboard.config_manager import ConfigManager
     return ConfigManager("../../backend/config/config.yaml")
 
@@ -150,9 +147,6 @@ try:
 
     elif st.session_state['current_page'] == 'charts':
         render_charts(metadata)
-
-    elif st.session_state['current_page'] == 'fetch_control':
-        render_fetch_control(config_manager)
 
     elif st.session_state['current_page'] == 'settings':
         render_settings(config_manager)

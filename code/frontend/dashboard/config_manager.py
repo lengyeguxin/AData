@@ -39,13 +39,13 @@ class ConfigManager:
             if self.config_path.exists():
                 with open(self.config_path, 'r', encoding='utf-8') as f:
                     config = yaml.safe_load(f)
-                    logger.info("Configuration loaded", path=str(self.config_path))
+                    logger.info(f"Configuration loaded from {self.config_path}")
                     return config
             else:
-                logger.warning("Configuration file not found", path=str(self.config_path))
+                logger.warning(f"Configuration file not found: {self.config_path}")
                 return self._get_default_config()
         except Exception as e:
-            logger.error("Failed to load configuration", error=str(e))
+            logger.error(f"Failed to load configuration: {e}")
             return self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
@@ -114,10 +114,10 @@ class ConfigManager:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.config, f, default_flow_style=False, allow_unicode=True)
 
-            logger.info("Configuration saved", path=str(self.config_path))
+            logger.info(f"Configuration saved to {self.config_path}")
             return True
         except Exception as e:
-            logger.error("Failed to save configuration", error=str(e))
+            logger.error(f"Failed to save configuration: {e}")
             return False
 
     def update_section(self, section: str, values: Dict[str, Any]) -> bool:
@@ -138,8 +138,7 @@ class ConfigManager:
             self.config[section].update(values)
             return self.save_config()
         except Exception as e:
-            logger.error("Failed to update configuration section",
-                        section=section, error=str(e))
+            logger.error(f"Failed to update configuration section {section}: {e}")
             return False
 
     def get_section(self, section: str) -> Dict[str, Any]:

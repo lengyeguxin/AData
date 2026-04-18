@@ -2,20 +2,13 @@
 元数据查询模块
 
 封装所有数据库元数据查询逻辑，提供统一的接口供监控页面使用
+Dashboard独立实现，不依赖后端代码
 """
 
-import sys
 from pathlib import Path
 from typing import List, Dict, Optional
 
-# 使用绝对路径，避免工作目录问题
-#        /home/my/claude-project/AData/code/frontend/dashboard/metadata.py
-#        parent.parent.parent = /home/my/claude-project/AData/code
-project_root = Path(__file__).parent.parent.parent
-backend_path = project_root / 'backend'
-sys.path.insert(0, str(backend_path))
-
-from src.core.database import Database
+from dashboard.database import DashboardDatabase
 from dashboard.utils.table_info import get_table_info
 from dashboard.utils.formatters import extract_column_comments
 
@@ -58,7 +51,8 @@ class DatabaseMetadata:
             self.db_path = db_path
             self.using_snapshot = False
 
-        self.db = Database(self.db_path)
+        # 使用Dashboard专用的Database类（只读，避免与后端冲突）
+        self.db = DashboardDatabase(self.db_path, use_snapshot=False)
 
     def get_table_list(self) -> List[str]:
         """

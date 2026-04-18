@@ -46,14 +46,13 @@ class DashboardConfigManager:
             if self.config_path.exists():
                 with open(self.config_path, 'r', encoding='utf-8') as f:
                     config = yaml.safe_load(f)
-                    logger.info("Dashboard configuration loaded", path=str(self.config_path))
+                    logger.info(f"Dashboard configuration loaded from {self.config_path}")
                     return config
             else:
-                logger.warning("Dashboard configuration file not found, using defaults",
-                             path=str(self.config_path))
+                logger.warning(f"Dashboard configuration file not found: {self.config_path}, using defaults")
                 return self._get_default_config()
         except Exception as e:
-            logger.error("Failed to load dashboard configuration", error=str(e))
+            logger.error(f"Failed to load dashboard configuration: {e}")
             return self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
@@ -124,10 +123,10 @@ class DashboardConfigManager:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.config, f, default_flow_style=False, allow_unicode=True)
 
-            logger.info("Dashboard configuration saved", path=str(self.config_path))
+            logger.info(f"Dashboard configuration saved to {self.config_path}")
             return True
         except Exception as e:
-            logger.error("Failed to save dashboard configuration", error=str(e))
+            logger.error(f"Failed to save dashboard configuration: {e}")
             return False
 
     def update_section(self, section: str, values: Dict[str, Any]) -> bool:
@@ -148,8 +147,7 @@ class DashboardConfigManager:
             self.config[section].update(values)
             return self.save_config()
         except Exception as e:
-            logger.error("Failed to update dashboard configuration section",
-                        section=section, error=str(e))
+            logger.error(f"Failed to update dashboard configuration section {section}: {e}")
             return False
 
     def get_section(self, section: str) -> Dict[str, Any]:
