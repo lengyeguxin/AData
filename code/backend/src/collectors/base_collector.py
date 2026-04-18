@@ -130,20 +130,19 @@ class BaseCollector:
         # 转换数据
         records = self.transform(data)
 
-        # 使用Database类统一管理连接（避免配置冲突）
-        db = Database(self.db_path)
+        # 使用上下文管理器自动关闭连接（避免连接泄漏，确保WAL能合并）
+        with Database(self.db_path) as db:
+            try:
+                # 批量插入
+                for record in records:
+                    db.execute(query, record)
 
-        try:
-            # 批量插入
-            for record in records:
-                db.execute(query, record)
+                self.logger.info(f"{self.table_name}: 保存成功 {len(records)}条记录")
+                return len(records)
 
-            self.logger.info(f"{self.table_name}: 保存成功 {len(records)}条记录")
-            return len(records)
-
-        except Exception as e:
-            self.logger.error(f"{self.table_name}: 保存失败: {e}")
-            raise
+            except Exception as e:
+                self.logger.error(f"{self.table_name}: 保存失败: {e}")
+                raise
 
     def run(self, **kwargs) -> int:
         """
@@ -203,10 +202,10 @@ class BaseCollector:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
-        result = db.execute(query, tuple(params))
+        with Database(self.db_path) as db:
+            result = db.execute(query, tuple(params))
 
-        return result[0][0] > 0
+            return result[0][0] > 0
 
     def _extract_values(self, item: Dict) -> tuple:
         """
@@ -239,10 +238,10 @@ class BaseCollector:
         query = f"SELECT COUNT(*) FROM {self.table_name}"
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
-        result = db.execute(query)
+        with Database(self.db_path) as db:
+            result = db.execute(query)
 
-        return result[0][0]
+            return result[0][0]
 
     def get_last_date(self) -> Optional[str]:
         """
@@ -257,10 +256,10 @@ class BaseCollector:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
-        result = db.execute(query)
+        with Database(self.db_path) as db:
+            result = db.execute(query)
 
-        if result and result[0] and result[0][0]:
-            return str(result[0][0])
+            if result and result[0] and result[0][0]:
+                return str(result[0][0])
 
         return None

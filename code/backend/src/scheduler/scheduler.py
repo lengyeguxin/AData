@@ -230,14 +230,23 @@ class DataScheduler:
 
     def execute_checkpoint(self):
         """
-        执行WAL checkpoint任务
+        执行WAL checkpoint任务（检查running状态，避免冲突）
 
         任务内容：
-        - 执行PRAGMA force_checkpoint
+        - 检查DataFetcher.running状态
+        - 如果running=True（正在拉取）→ 跳过（每个表完成后自动checkpoint）
+        - 如果running=False（任务未运行）→ 执行checkpoint
         - 将WAL合并到主数据库文件
         - 减少WAL文件大小
         """
-        self.logger.info("开始执行checkpoint...")
+        from src.core.data_fetcher import DataFetcher
+
+        # 检查running状态（拉取中每个表会自动checkpoint，不需要调度器执行）
+        if DataFetcher.running:
+            self.logger.info("⚠️  数据正在拉取（running=True）→ 跳过checkpoint（表完成后自动执行）")
+            return
+
+        self.logger.info("开始执行checkpoint（数据拉取未运行）...")
 
         try:
             # 使用Database类的checkpoint方法
@@ -246,9 +255,11 @@ class DataScheduler:
             db.close()
 
             if success:
-                self.logger.info("✓ Checkpoint执行成功，WAL已合并到数据库文件")
+                import os
+                wal_size = os.path.getsize('database/adata.db.wal') / 1024.0 / 1024.0 if os.path.exists('database/adata.db.wal') else 0
+                self.logger.info(f"✓ Checkpoint执行成功，WAL已合并（WAL大小: {wal_size:.2f}MB）")
             else:
-                self.logger.warning("⚠️ Checkpoint执行失败")
+                self.logger.warning("⚠️  Checkpoint执行失败")
 
         except Exception as e:
             self.logger.error(f"✗ Checkpoint执行失败: {e}")
