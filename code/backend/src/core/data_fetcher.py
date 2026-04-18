@@ -81,10 +81,6 @@ class DataFetcher:
         self.config = config
         self.logger = get_logger(__name__)
 
-        # 持有长期数据库连接（用于checkpoint和查询）
-        from src.core.database import Database
-        self.db = Database(db_path)
-
         # 初始化游标管理器
         self.cursor_manager = GlobalCursorManager(db_path, 'code/backend/config')
 
@@ -95,10 +91,6 @@ class DataFetcher:
         self.max_retries = config.get('fetch', {}).get('max_retries', 2)
         self.retry_delay = config.get('fetch', {}).get('retry_delay', 30)
         self.logger.info(f"重试配置: max_retries={self.max_retries}, retry_delay={self.retry_delay}秒")
-
-        # Checkpoint配置（每完成一个优先级组就checkpoint）
-        self.checkpoint_enabled = config.get('snapshot', {}).get('checkpoint_interval', True)
-        self.logger.info(f"Checkpoint配置: {self.checkpoint_enabled}")
 
         # 无数据记录文件路径（database目录下）
         import yaml
@@ -146,27 +138,6 @@ class DataFetcher:
             # 按优先级顺序拉取所有表
             self._fetch_all_tables()
 
-            # 拉取完成后，短暂等待连接释放后执行checkpoint
-            self.logger.info("=" * 80)
-            self.logger.info("数据拉取完成，等待连接释放后执行checkpoint...")
-            self.logger.info("=" * 80)
-
-            import time
-            time.sleep(3)  # 等待3秒，让Collector连接释放
-
-            from src.core.database import Database
-            try:
-                db_checkpoint = Database(self.db_path)
-                success = db_checkpoint.checkpoint()
-                db_checkpoint.close()
-
-                if success:
-                    self.logger.info("✓ Checkpoint执行成功，WAL已合并到数据库文件")
-                else:
-                    self.logger.warning("⚠️  Checkpoint执行失败，WAL未合并")
-            except Exception as e:
-                self.logger.warning(f"⚠️  Checkpoint执行失败（可能连接未释放）: {e}")
-
         except Exception as e:
             self.logger.error(f"数据拉取异常: {e}")
             # 异常情况下也要设置running=False，避免调度器一直跳过
@@ -194,8 +165,10 @@ class DataFetcher:
         """
 
         try:
-            # 使用self.db连接（不再创建新连接）
-            results = self.db.execute(query)
+            # 使用Database类统一管理连接
+            from src.core.database import Database
+            db = Database(self.db_path)
+            results = db.execute(query)
 
             # 转换为YYYYMMDD格式（去掉横线）
             trade_dates = [str(row[0]).replace('-', '') for row in results]
@@ -360,26 +333,6 @@ class DataFetcher:
                     )
                     # 标记为失败（需要在Dashboard展示）
                     self.cursor_manager.mark_failed(table_name, "无数据（行情表必须有数据）")
-
-            # 每个表完成后，执行checkpoint合并WAL（避免WAL文件过大）
-            self.logger.info(f"{table_name}: 入库完成，执行checkpoint合并WAL...")
-            import time
-            time.sleep(2)  # 等待2秒确保连接释放
-
-            from src.core.database import Database
-            try:
-                db_checkpoint = Database(self.db_path)
-                success = db_checkpoint.checkpoint()
-                db_checkpoint.close()
-
-                if success:
-                    import os
-                    wal_size = os.path.getsize(self.db_path + '.wal') / 1024.0 / 1024.0 if os.path.exists(self.db_path + '.wal') else 0
-                    self.logger.info(f"✓ {table_name}: Checkpoint成功，WAL大小 {wal_size:.2f}MB")
-                else:
-                    self.logger.warning(f"⚠️  {table_name}: Checkpoint失败")
-            except Exception as e:
-                self.logger.warning(f"⚠️  {table_name}: Checkpoint异常（可能连接未释放）: {e}")
 
         except Exception as e:
             self.logger.error(f"{table_name}: 拉取失败: {e}")
