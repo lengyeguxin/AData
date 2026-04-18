@@ -90,9 +90,9 @@ dashboard_config = get_dashboard_config_manager()
 db_path = dashboard_config.get_database_path()
 
 # 获取元数据查询器（提前获取，用于显示信息）
-metadata_temp = DatabaseMetadata(db_path, use_snapshot=True)
-db_display_path = metadata_temp.db_path
-snapshot_status = "快照副本只读" if metadata_temp.using_snapshot else "主数据库"
+metadata_temp = DatabaseMetadata(db_path)
+db_display_path = metadata_temp.db.db_path
+snapshot_status = "快照数据库（只读）"  # Dashboard永远使用快照数据库
 
 st.sidebar.info(f"""
 **数据库**: {db_display_path}
@@ -112,12 +112,11 @@ def get_metadata():
     dashboard_config = get_dashboard_config_manager()
     db_path = dashboard_config.get_database_path()
 
-    # 创建元数据查询器，使用快照模式
-    metadata = DatabaseMetadata(db_path, use_snapshot=True)
+    # 创建元数据查询器，强制使用快照数据库
+    metadata = DatabaseMetadata(db_path)
 
-    # 显示提示信息
-    if metadata.using_snapshot:
-        st.sidebar.success("✅ 使用快照数据库读取数据（只读模式）")
+    # 显示提示信息（DashboardDatabase已自动连接快照）
+    st.sidebar.success("✅ 使用快照数据库（只读模式，不阻塞后端）")
 
     return metadata
 

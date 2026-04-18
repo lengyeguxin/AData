@@ -68,7 +68,10 @@ class DataScheduler:
         # 2. 快照定时生成任务（每30分钟）
         self.add_snapshot_job()
 
-        # 3. 启动调度器
+        # 3. WAL checkpoint任务（每1小时）
+        self.add_checkpoint_job()
+
+        # 4. 启动调度器
         self.scheduler.start()
         self.logger.info("✓ 定时任务调度器已启动")
 
@@ -127,6 +130,28 @@ class DataScheduler:
 
         self.logger.info(f"✓ 已添加快照生成任务: 每{self.snapshot_interval}分钟")
 
+    def add_checkpoint_job(self):
+        """
+        添加WAL checkpoint定时任务
+
+        时间：每1小时
+        任务：执行checkpoint，将WAL合并到主数据库文件
+        """
+        # 创建interval触发器（每1小时）
+        trigger = IntervalTrigger(hours=1)
+
+        # 添加任务
+        self.scheduler.add_job(
+            self.execute_checkpoint,
+            trigger,
+            id='checkpoint',
+            name='WAL Checkpoint',
+            max_instances=1,
+            misfire_grace_time=300  # 允许5分钟内的延迟执行
+        )
+
+        self.logger.info(f"✓ 已添加checkpoint任务: 每1小时")
+
     def fetch_daily_data(self):
         """
         拉取日线数据任务
@@ -181,6 +206,31 @@ class DataScheduler:
         except Exception as e:
             self.logger.error(f"✗ 快照生成失败: {e}")
             # 发送通知（待实现）
+
+    def execute_checkpoint(self):
+        """
+        执行WAL checkpoint任务
+
+        任务内容：
+        - 执行PRAGMA force_checkpoint
+        - 将WAL合并到主数据库文件
+        - 减少WAL文件大小
+        """
+        self.logger.info("开始执行checkpoint...")
+
+        try:
+            # 使用Database类的checkpoint方法
+            db = Database('database/adata.db')
+            success = db.checkpoint()
+            db.close()
+
+            if success:
+                self.logger.info("✓ Checkpoint执行成功，WAL已合并到数据库文件")
+            else:
+                self.logger.warning("⚠️ Checkpoint执行失败")
+
+        except Exception as e:
+            self.logger.error(f"✗ Checkpoint执行失败: {e}")
 
     def get_jobs_status(self) -> Dict:
         """

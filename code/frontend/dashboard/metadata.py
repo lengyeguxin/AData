@@ -2,7 +2,7 @@
 元数据查询模块
 
 封装所有数据库元数据查询逻辑，提供统一的接口供监控页面使用
-Dashboard独立实现，不依赖后端代码
+Dashboard独立实现，不依赖后端代码，强制只使用快照数据库
 """
 
 from pathlib import Path
@@ -14,15 +14,17 @@ from dashboard.utils.formatters import extract_column_comments
 
 
 class DatabaseMetadata:
-    """数据库元数据查询器"""
+    """数据库元数据查询器（只读，使用快照数据库）"""
 
-    def __init__(self, db_path: str = None, use_snapshot: bool = True):
+    def __init__(self, db_path: str = None):
         """
         初始化元数据查询器
 
         Args:
-            db_path: 数据库文件路径，默认使用项目根目录下的database/adata.db
-            use_snapshot: 是否使用快照副本进行读取（读写）
+            db_path: 数据库文件路径（仅用于定位快照，实际连接adata_snapshot.db）
+                     如果为None，默认使用项目根目录的database/adata_snapshot.db
+
+        注意：Dashboard永远只使用快照数据库，不连接主数据库adata.db
         """
         if db_path is None:
             # 使用绝对路径，避免工作目录问题
@@ -37,22 +39,8 @@ class DatabaseMetadata:
             if not db_path_obj.is_absolute():
                 db_path = str(project_root / db_path)
 
-        # 如果启用快照模式，优先使用快照副本
-        if use_snapshot:
-            snapshot_path = db_path.replace('.db', '_snapshot.db')
-            snapshot_file = Path(snapshot_path)
-            if snapshot_file.exists():
-                self.db_path = snapshot_path
-                self.using_snapshot = True
-            else:
-                self.db_path = db_path
-                self.using_snapshot = False
-        else:
-            self.db_path = db_path
-            self.using_snapshot = False
-
-        # 使用Dashboard专用的Database类（只读，避免与后端冲突）
-        self.db = DashboardDatabase(self.db_path, use_snapshot=False)
+        # DashboardDatabase会自动转换为快照路径并强制使用快照数据库
+        self.db = DashboardDatabase(db_path)
 
     def get_table_list(self) -> List[str]:
         """
