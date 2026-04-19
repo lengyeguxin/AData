@@ -525,14 +525,10 @@ class DataFetcher:
                         self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
                     elif count == 0:
                         # 无数据但不算失败（同花顺和游资早期可能没有数据）
-                        if table_name in ['ths_moneyflow', 'ths_concept_moneyflow', 'ths_industry_moneyflow', 'hots_trader_detail']:
-                            self.logger.warning(f"{table_name}: {trade_date} 无数据（早期可能无数据，跳过）")
-                            # 记录无数据日期
-                            self._record_no_data_date(table_name, trade_date)
-                            # 更新游标到该日期，下次继续
-                            self.cursor_manager.update_cursor(table_name, trade_date, 0)
-                            self.logger.info(f"{table_name}: 游标更新为 {trade_date}（无数据）")
-                            continue
+                        # _retry_fetch已记录到no_data_dates.json并返回0，这里只需更新游标
+                        self.cursor_manager.update_cursor(table_name, trade_date, 0)
+                        self.logger.info(f"{table_name}: 游标更新为 {trade_date}（无数据，已记录）")
+                        continue
                     # 每拉取成功一个批次，立即更新游标到该日期
                     self.cursor_manager.update_cursor(table_name, trade_date, count)
                     self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
@@ -954,10 +950,10 @@ class DataFetcher:
                 self.logger.error(f"保存无数据记录失败: {e}")
                 return
 
-            # 记录WARNING日志
-            self.logger.warning(
-                f"{table_name}: {date_str} 重试{self.max_retries+1}次后仍然无数据，"
-                f"已记录到 no_data_dates.json"
+            # 记录INFO日志（而不是WARNING，因为这是正常情况）
+            self.logger.info(
+                f"{table_name}: {date_str} 无数据（重试{self.max_retries+1}次后），"
+                f"已记录到 no_data_dates.json，继续拉取后续日期"
             )
 
     def _retry_fetch_none(self, table_name: str, fetch_func) -> Optional[int]:
@@ -1051,7 +1047,16 @@ class DataFetcher:
                 else:
                     # 无数据的情况
                     if date_type == 'trade_date':
-                        # 行情表无数据是异常
+                        # 行情表无数据：检查是否是允许无数据的特殊表
+                        special_tables = ['ths_moneyflow', 'ths_concept_moneyflow',
+                                         'ths_industry_moneyflow', 'hots_trader_detail']
+
+                        if table_name in special_tables:
+                            # 特殊表允许无数据（早期可能无数据），记录并返回0
+                            self._record_no_data_date(table_name, date_str)
+                            return 0
+
+                        # 其他行情表无数据是异常
                         if attempt < self.max_retries:
                             self.logger.warning(
                                 f"{table_name}: {date_str} 返回空数据，重试 {attempt+1}/{self.max_retries+1}"
