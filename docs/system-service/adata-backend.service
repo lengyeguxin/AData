@@ -1,0 +1,22 @@
+[Unit]
+Description=AData Backend Service - A股数据采集服务
+After=network.target
+
+[Service]
+Type=simple
+User=my
+WorkingDirectory=/home/my/claude-project/AData
+Environment="PATH=/home/my/claude-project/AData/venv/bin:/usr/bin"
+
+# 启动前：创建logs目录 + 备份已有日志
+ExecStartPre=/bin/mkdir -p /home/my/claude-project/AData/logs
+ExecStartPre=/bin/sh -c 'cd /home/my/claude-project/AData/logs && for f in *.log; do [ -f "$f" ] && [ -s "$f" ] && mv "$f" "$f.$(date +%%Y%%m%%d-%%H%%M%%S).bak"; done; true'
+
+ExecStart=/home/my/claude-project/AData/venv/bin/python3 /home/my/claude-project/AData/code/backend/main.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
