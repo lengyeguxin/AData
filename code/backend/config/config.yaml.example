@@ -20,7 +20,7 @@ fetch:
   start_date: "20210101"           # 最早开始时间（全局默认）
   check_interval: 60               # 检测间隔（分钟）
   max_retries: 2                   # 失败重试次数
-  retry_delay: 60                  # 重试间隔（秒）
+  retry_delay: 10                  # 重试间隔（秒）
   timeout: 60                      # API超时（VIP需要60s）
 
 # 快照配置
@@ -33,9 +33,9 @@ snapshot:
 
 # 调度器配置
 scheduler:
-  daily_update_time: "18:00"       # 日数据更新时间（18点判断）
-  weekly_update_time: "19:00"      # 周数据更新时间
-  monthly_update_time: "20:00"     # 月数据更新时间
+  enabled: true
+  # 注意：weekly_update_time和monthly_update_time配置已弃用
+  # 数据拉取使用check_interval机制（每60分钟检查一次）
 
 # 日志配置
 logging:
