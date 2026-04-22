@@ -298,7 +298,7 @@ python3 code/backend/init_db.py --force
 | hots_user | 龙虎榜用户 | 每日 |
 | ... | ... | ... |
 
-完整数据表信息参见：[design-doc/数据表信息汇总.csv](design-doc/数据表信息汇总.csv)
+完整数据表信息参见：[docs/数据表信息汇总.csv](design-doc/数据表信息汇总.csv)
 
 ## 技术架构
 
