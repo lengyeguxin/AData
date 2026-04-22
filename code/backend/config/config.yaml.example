@@ -9,7 +9,7 @@ database:
 # Tushare API配置
 tushare:
   token: YOUR_TUSHARE_TOKEN_HERE  # 请替换为您的Tushare Token
-  api_url: http://8.136.22.187:8010/  # Tushare代理API地址（推荐使用新代理）
+  api_url: YOUR_TUSHARE_API_URL   # Tushare（代理）API地址
   rate_limit: 500  # 每分钟500次（1万积分）
   random_sleep_min: 1  # 随机休眠最小值（秒）
   random_sleep_max: 0  # 随机休眠最大值（秒），设置为0表示禁用休眠
