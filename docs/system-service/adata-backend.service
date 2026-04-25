@@ -5,14 +5,14 @@ After=network.target
 [Service]
 Type=simple
 User=my
-WorkingDirectory=/home/my/claude-project/AData
-Environment="PATH=/home/my/claude-project/AData/venv/bin:/usr/bin"
+WorkingDirectory=/home/my/.claude/claude-project/AData
+Environment="PATH=/home/my/.claude/claude-project/AData/venv-adata/bin:/usr/bin"
 
 # 启动前：创建logs目录 + 备份已有日志
-ExecStartPre=/bin/mkdir -p /home/my/claude-project/AData/logs
-ExecStartPre=/bin/sh -c 'cd /home/my/claude-project/AData/logs && for f in *.log; do [ -f "$f" ] && [ -s "$f" ] && mv "$f" "$f.$(date +%%Y%%m%%d-%%H%%M%%S).bak"; done; true'
+ExecStartPre=/bin/mkdir -p /home/my/.claude/claude-project/AData/logs
+ExecStartPre=/bin/sh -c 'cd /home/my/.claude/claude-project/AData/logs && for f in *.log; do [ -f "$f" ] && [ -s "$f" ] && mv "$f" "$f.$(date +%%Y%%m%%d-%%H%%M%%S).bak"; done; true'
 
-ExecStart=/home/my/claude-project/AData/venv/bin/python3 /home/my/claude-project/AData/code/backend/main.py
+ExecStart=/home/my/.claude/claude-project/AData/venv-adata/bin/python3 /home/my/.claude/claude-project/AData/code/backend/main.py
 Restart=on-failure
 RestartSec=10
 StandardOutput=null
