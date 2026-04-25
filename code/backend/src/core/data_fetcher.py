@@ -146,6 +146,15 @@ class DataFetcher:
             raise
 
         finally:
+            # 执行WAL合并（将.wal文件合并到主数据库）
+            try:
+                from src.core.database import Database
+                db = Database(self.db_path)
+                db.checkpoint()
+                self.logger.info("✓ 数据库WAL合并完成")
+            except Exception as e:
+                self.logger.warning(f"WAL合并失败（不影响数据完整性）: {e}")
+
             # 确保无论如何都设置running=False（拉取完成）
             DataFetcher.running = False
             self.logger.info("✓ 数据拉取任务完成（running=False）")
