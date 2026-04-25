@@ -2,6 +2,7 @@
 DuckDB数据库封装类
 
 提供统一的数据库操作接口
+- 单例模式：全局共享一个连接，确保checkpoint能合并WAL
 - 线程安全：写操作加锁，保证DuckDB单写模型
 - 并发读：读操作无锁，支持多线程并发读取
 """
@@ -14,16 +15,42 @@ from src.core.logger import get_logger
 
 
 class Database:
-    """DuckDB数据库封装类（线程安全）"""
+    """DuckDB数据库封装类（单例模式，线程安全）"""
 
-    def __init__(self, db_path: str):
+    # 单例实例和锁
+    _instances = {}
+    _lock = threading.Lock()
+
+    def __new__(cls, db_path: str):
         """
-        初始化数据库连接
+        单例模式：同一个db_path返回同一个实例
 
         Args:
             db_path: 数据库文件路径
         """
+        # 使用绝对路径作为key
+        abs_path = str(Path(db_path).resolve())
+
+        with cls._lock:
+            if abs_path not in cls._instances:
+                instance = super().__new__(cls)
+                cls._instances[abs_path] = instance
+            return cls._instances[abs_path]
+
+    def __init__(self, db_path: str):
+        """
+        初始化数据库连接（单例，只初始化一次）
+
+        Args:
+            db_path: 数据库文件路径
+        """
+        # 避免重复初始化
+        abs_path = str(Path(db_path).resolve())
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+
         self.db_path = db_path
+        self.abs_path = abs_path
         self.logger = get_logger(__name__)
 
         # 确保数据库目录存在
@@ -35,6 +62,8 @@ class Database:
         # 线程安全：写操作锁（保护DuckDB单写模型）
         self.write_lock = threading.Lock()
 
+        self._initialized = True
+        self._closed = False
         self.logger.info(f"数据库连接初始化: {db_path}")
 
     def execute(self, query: str, params: Optional[Tuple] = None) -> List[Tuple]:
@@ -86,9 +115,31 @@ class Database:
                 raise
 
     def close(self):
-        """关闭数据库连接"""
-        if self.conn:
-            self.conn.close()
+        """
+        关闭数据库连接并清除单例实例
+
+        注意：关闭后会清除单例，下次使用会重新创建连接
+        """
+        if self._closed:
+            return
+
+        with self.write_lock:
+            if self.conn and not self._closed:
+                # 先执行checkpoint合并WAL
+                try:
+                    self.conn.execute("PRAGMA force_checkpoint")
+                    self.logger.info("关闭前Checkpoint执行成功，WAL已合并")
+                except Exception as e:
+                    self.logger.warning(f"关闭前Checkpoint失败: {e}")
+
+                self.conn.close()
+                self._closed = True
+
+                # 清除单例实例
+                if self.abs_path in Database._instances:
+                    del Database._instances[self.abs_path]
+
+                self.logger.info(f"数据库连接已关闭: {self.db_path}")
 
     def __enter__(self):
         """进入上下文"""
@@ -148,12 +199,32 @@ class Database:
         """
         执行checkpoint操作，将WAL合并到主数据库文件
 
-        用于定期清理WAL文件，减少文件大小
+        原理：关闭连接后再打开，强制DuckDB合并WAL文件
+        这是唯一能确保WAL真正合并到主库的方法
+
+        Returns:
+            True: 合并成功
+            False: 合并失败
         """
         try:
-            self.conn.execute("PRAGMA force_checkpoint")
-            self.logger.info("Checkpoint执行成功，WAL已合并到数据库文件")
-            return True
+            with self.write_lock:
+                # 执行checkpoint命令
+                self.conn.execute("PRAGMA force_checkpoint")
+
+                # 关闭连接以触发WAL合并
+                self.conn.close()
+
+                # 重新打开连接
+                self.conn = duckdb.connect(self.db_path)
+
+                self.logger.info("Checkpoint执行成功，WAL已合并到数据库文件")
+                return True
+
         except Exception as e:
             self.logger.error(f"Checkpoint执行失败: {e}")
+            # 尝试恢复连接
+            try:
+                self.conn = duckdb.connect(self.db_path)
+            except Exception as ex:
+                self.logger.error(f"连接恢复失败: {ex}")
             return False
