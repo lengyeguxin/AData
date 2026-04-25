@@ -1,455 +1,444 @@
-# AData - A股数据采集系统
+# AData - A股数据库系统
 
-基于Tushare Pro API的A股数据采集系统，采用全局游标机制实现断点续传，支持VIP接口，避免重复爬取。
+完整的A股数据采集、存储和可视化系统，基于DuckDB和Streamlit构建。
 
 ## 项目简介
 
-AData是一个重构后的A股数据采集系统，核心目标：
+AData是一个专门为A股市场设计的数据管理系统，提供：
 
-- **全局游标系统**：每表一个游标，记录整体拉取进度，支持断点续传
-- **避免重复爬取**：数据存在性检查，节省API配额
-- **VIP接口支持**：财务表使用VIP接口（更丰富字段、更快更新）
-- **代码复用**：BaseCollector基类消除冗余
-- **18点时间判断**：确保数据完整性（fetch_after_time配置）
+- 📊 **数据采集**：通过Tushare API自动采集A股历史数据、财务数据、指数数据等
+- 🗄️ **高效存储**：基于DuckDB的高性能列式数据库
+- 📈 **实时监控**：Streamlit Dashboard可视化监控界面
+- 🔄 **定时更新**：支持每日/每周/每月自动更新数据
+- 💾 **双快照架构**：快照同时备份到多个位置，支持多Dashboard实例
+- ⏸️ **断点续传**：支持从中断处继续数据导入
 
-## 项目架构
+## 项目结构
 
 ```
 AData/
 ├── code/
-│   ├── backend/
-│   │   ├── src/
-│   │   │   ├── core/           # 核心组件
-│   │   │   │   ├── database.py              # DuckDB封装
-│   │   │   │   ├── tushare_api.py           # Tushare API封装
-│   │   │   │   ├── global_cursor_manager.py # 游标管理器
-│   │   │   │   ├── logger.py                # 日志系统
-│   │   │   │   └── transformers.py          # 数据转换
-│   │   │   ├── collectors/     # 数据拉取器（27个）
-│   │   │   │   ├── base_collector.py        # 基类
-│   │   │   │   ├── stock_basic_collector.py
-│   │   │   │   ├── trade_calendar_collector.py
-│   │   │   │   ├── income_collector.py      # VIP接口
-│   │   │   │   └── ... (其他24个Collector)
+│   ├── backend/                 # 后端服务
+│   │   ├── main.py             # 主启动入口
+│   │   ├── init_db.py          # 数据库初始化脚本
 │   │   ├── config/             # 配置文件
-│   │   │   ├── config.yaml                  # 主配置
-│   │   │   └── table_config.yaml            # 表配置
-│   │   ├── tests/              # 测试脚本
-│   │   └── scripts/            # 工具脚本
-│   └ frontend/
-│       └ dashboard/            # Streamlit Dashboard
+│   │   │   ├── config.yaml     # 主配置文件（需配置token）
+│   │   │   ├── config.yaml.example  # 配置文件示例
+│   │   │   └── table_config.yaml  # 数据表配置
+│   │   ├── scripts/            # 工具脚本
+│   │   │   ├── setup_database.py      # 数据库设置
+│   │   │   ├── verify_schema.py       # Schema验证
+│   │   │   └── generate_phase2_summary.py  # 摘要生成
+│   │   └── src/                # 源代码
+│   │       ├── core/           # 核心模块
+│   │       │   ├── database.py         # 数据库封装
+│   │       │   ├── tushare_api.py      # API接口
+│   │       │   ├── data_fetcher.py     # 数据拉取
+│   │       │   └── global_cursor_manager.py  # 游标管理
+│   │       ├── collectors/     # 数据采集器
+│   │       └── scheduler/      # 任务调度器
+│   │
+│   └── frontend/                # 前端Dashboard
+│       ├── run_dashboard.py    # Dashboard启动脚本
+│       └── dashboard/           # Dashboard应用
+│           ├── app.py          # 主应用
+│           ├── config/         # Dashboard配置
+│           ├── components/     # UI组件
+│           └── metadata.py     # 元数据查询
 │
-├── database/
-│   ├── adata.db                # 主数据库（DuckDB）
-│   ├── schemas/                # SQL schema文件
-│       ├── global_cursor_schema.sql         # 游标表
-│       ├── p0_schema.sql                    # P0基础表
-│       ├── p1_schema.sql                    # P1行情表
-│       └── p2_schema.sql                    # P2财务表
+├── database/                    # 数据库文件目录
+│   ├── adata.db                # 主数据库
+│   └── schemas/                # 数据库Schema文件
 │
-├── design-doc/                 # 设计文档
-│   ├── DETAILED_DESIGN.md      # 详细技术设计
-│   ├── IMPLEMENTATION_PLAN.md  # 实施计划
-│   └── 数据表信息汇总.csv       # 表信息文档
+├── docs/                        # 项目文档
+│   ├── README.md                # 文档索引
+│   ├── ARCHITECTURE.md          # 架构设计文档
+│   └── DEPLOYMENT.md            # 部署运维文档
+├── design-doc/                  # 设计文档
+│   └── 数据表信息汇总.csv       # 数据表汇总
 │
-└ tmp/                          # 测试报告目录
+├── logs/                        # 日志目录
+├── .claude/                     # Claude记忆系统
+├── CLAUDE.md                    # 项目配置
+└── README.md                    # 本文件
 ```
 
-## 核心特性
+## 快速开始
 
-### 1. 全局游标系统
+### 1. 环境准备
 
-每表一个游标，记录整体拉取进度：
-
-- **游标表**：`global_cursor`（27条记录）
-- **游标策略**：5种策略覆盖不同数据类型
-  - `none`：无游标，全量拉取（stock_basic等）
-  - `yearly`：按年记录（trade_calendar）
-  - `daily_trade`：按交易日记录（stock_daily等）
-  - `daily_natural`：按自然日记录（财务表）
-  - `special_ths_member`：特殊游标（ths_concept_member）
-
-### 2. VIP接口支持
-
-财务表使用VIP接口，严格按照CSV文档命名：
-
-| VIP接口 | 表名 | 说明 |
-|---------|------|------|
-| `income_vip` | income | 利润表 |
-| `fina_indicator_vip` | fina_indicator | 财务指标 |
-| `balancesheet_vip` | balancesheet | 资产负债表 |
-| `cashflow_vip` | cashflow | 现金流量表 |
-| `forecast_vip` | express | 业绩预告 |
-| `express_vip` | express_brief | 业绩快报 |
-| `stk_week_month_adj` | stock_weekly/monthly | 周线月线 |
-
-### 3. 避免重复爬取
-
-- 数据存在性检查：拉取前查询数据库
-- 游标判断进度：启动时读取游标，从游标+1开始
-- ON CONFLICT处理：业务主键冲突时更新而非插入
-
-### 4. 18点时间判断
-
-- `fetch_after_time`：配置表拉取时间（如18:00）
-- 当前时间≥18:00：使用今天日期
-- 当前时间<18:00：使用昨日日期
-
-## 数据库结构
-
-### 表分类（27张表）
-
-**P0基础表（6张）**：
-- trade_calendar - 交易日历
-- stock_basic - 股票列表
-- index_basic - 指数列表
-- ths_index_basic - 同花顺指数列表
-- etf_basic - ETF基本信息
-- etf_index - ETF基准指数
-
-**P1行情表（7张）**：
-- stock_daily - 日线行情
-- stock_daily_basic - 每日估值指标
-- stock_weekly - 周线行情（VIP接口）
-- stock_monthly - 月线行情（VIP接口）
-- index_daily - 指数日线
-- etf_daily - ETF日线
-- etf_adj_factor - ETF复权因子
-
-**P2财务表（7张）VIP接口**：
-- fina_indicator - 财务指标
-- income - 利润表
-- balancesheet - 资产负债表
-- cashflow - 现金流量表
-- express - 业绩预告
-- express_brief - 业绩快报
-- dividend - 分红送股
-
-**P3资金流向（3张）**：
-- ths_moneyflow - 同花顺资金流向
-- ths_concept_moneyflow - 同花顺概念资金流向
-- ths_industry_moneyflow - 同花顺行业资金流向
-
-**P3概念板块（2张）**：
-- ths_concept_member - 同花顺概念成分
-- ths_index_daily - 同花顺指数日线
-
-**P4游资（2张）**：
-- hots_user - 游资用户
-- hots_trader_detail - 游资交易明细
-
-### 游标表结构
-
-```sql
-CREATE TABLE global_cursor (
-    table_name VARCHAR(50) PRIMARY KEY,
-    cursor_strategy VARCHAR(20),       -- none/daily_trade/daily_natural/yearly/special
-    cursor_value VARCHAR(20),          -- YYYYMMDD/YYYY/completed/ts_code
-    dependencies TEXT,                 -- 前置表依赖
-    fetch_after_time VARCHAR(10),      -- 截至时间（HH:MM）
-    last_fetch_time TIMESTAMP,
-    last_record_count INTEGER,
-    status VARCHAR(10),                -- pending/running/success/failed
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
-);
-```
-
-## 安装和使用
-
-### 1. 环境要求
-
-- Python 3.10+
-- DuckDB
-- Tushare Pro API Token（1万积分以上）
-
-### 2. 安装依赖
+确保已安装Python 3.8+：
 
 ```bash
-pip install duckdb requests pyyaml streamlit
+python3 --version
 ```
 
-### 3. 配置API Token
+### 2. 配置Tushare Token
 
-编辑 `code/backend/config/config.yaml`：
+复制配置文件并填入您的Tushare Token：
+
+```bash
+cd /home/my/claude-project/AData
+cp code/backend/config/config.yaml.example code/backend/config/config.yaml
+```
+
+编辑 `code/backend/config/config.yaml`，将 `YOUR_TUSHARE_TOKEN_HERE` 替换为您的实际token：
 
 ```yaml
 tushare:
-  token: YOUR_TUSHARE_TOKEN  # 替换为你的Token
-  api_url: http://api.tushare.pro
-  rate_limit: 500  # 每分钟500次（1万积分）
+  token: 您的实际token  # 在这里替换
 ```
 
-### 4. 初始化数据库
+> 💡 获取Tushare Token：访问 https://tushare.pro 注册账号
+
+### 3. 初始化数据库
+
+首次部署需要初始化数据库（仅执行一次）：
 
 ```bash
-cd code/backend
-python scripts/setup_database.py
+python3 code/backend/init_db.py
 ```
 
-输出：
-```
-✅ 数据库初始化完成
-  已创建表数: 28
-  游标记录数: 27
-```
+此操作会创建27张数据表和游标表。
 
-### 5. 运行测试
+### 4. 启动后端服务
+
+启动数据采集和定时任务：
 
 ```bash
-# 基础功能测试
-python tests/test_collectors.py
-
-# 数据拉取逻辑测试
-python tests/test_fetch_logic.py
-
-# 真实API测试（需API配额）
-python tests/test_api_real.py
+python3 code/backend/main.py
 ```
 
-### 6. 启动Dashboard
+后端会自动：
+- 拉取最新数据
+- 启动定时任务（每日18点更新日数据）
+- 定期创建快照（每30分钟）
+
+### 5. 启动前端Dashboard
+
+在另一个终端启动Dashboard：
 
 ```bash
-cd code/frontend
-python run_dashboard.py
+python3 code/frontend/run_dashboard.py
 ```
 
-访问：http://localhost:8501
+访问 http://localhost:8501 查看数据监控界面。
 
-## 测试结果
+## 核心功能
 
-### 基础功能测试（100%通过）
+### 数据采集
 
-| 测试项 | 结果 | 说明 |
-|--------|------|------|
-| Collector初始化 | ✅ 9/9通过 | 所有Collector正确初始化 |
-| 数据转换 | ✅ 通过 | 日期格式转换正确 |
-| 数据保存 | ✅ 通过 | ON CONFLICT处理正确 |
-| 游标更新 | ✅ 通过 | DELETE + INSERT方式 |
-| VIP接口验证 | ✅ 通过 | VIP接口名称正确 |
-| 数据存在性检查 | ✅ 通过 | 避免重复爬取 |
+系统支持采集以下类型的数据：
 
-### 数据拉取逻辑测试（100%通过）
+- **基础数据**：股票基本信息、指数基本信息、交易日历
+- **行情数据**：日行情、分钟行情、指数行情
+- **财务数据**：资产负债表、利润表、现金流量表、财务指标
+- **市场数据**：资金流向、龙虎榜、概念板块
+- **ETF数据**：ETF基本信息、行情、复权因子
 
-| 测试项 | 结果 | 说明 |
-|--------|------|------|
-| 游标策略判断 | ✅ 4/4通过 | 5种策略正确识别 |
-| 截止时间判断 | ✅ 通过 | 18:00和09:00判断正确 |
-| 游标更新时机 | ✅ 通过 | 财务表允许无数据 |
-| 下次拉取日期 | ✅ 通过 | 游标+1计算正确 |
+### 定时任务
 
-### VIP接口验证（100%）
+- **日数据更新**：每日18:00自动更新日行情、日线数据
+- **周数据更新**：每周五19:00更新周线数据
+- **月数据更新**：每月20:00更新月线数据
+- **快照创建**：每30分钟自动创建快照备份
 
-所有VIP接口名称严格按照CSV文档：
-- income_vip
-- fina_indicator_vip
-- balancesheet_vip
-- cashflow_vip
-- forecast_vip
-- express_vip
-- stk_week_month_adj
+### 双快照架构
 
-### 游标策略覆盖（100%）
+快照同时备份到两个位置，支持：
+- 主快照：`database/adata_snapshot.db`（AData项目）
+- 副快照：`/path/to/AIStock/database/adata_snapshot.db`（AIStock项目）
 
-所有5种游标策略已实现：
-- none（6个Collector）
-- yearly（1个Collector）
-- daily_trade（13个Collector）
-- daily_natural（7个Collector）
-- special_ths_member（1个Collector）
+Dashboard使用快照数据库（只读），不影响主数据库的写入操作。
 
-## Collector实现进度
+## 运行模式
 
-✅ **已完成：27/27（100%）**
+### 后端运行模式
 
-- P0前置表：6个 ✅
-- P1行情表：7个 ✅
-- P2财务表：7个 ✅
-- P3资金流向：3个 ✅
-- P3概念板块：2个 ✅
-- P4游资：2个 ✅
+```bash
+# 完整启动（数据拉取+定时任务）
+python3 code/backend/main.py
 
-所有Collector代码位于：`code/backend/src/collectors/`
+# 仅拉取数据（一次性）
+python3 code/backend/main.py --fetch
+
+# 仅启动定时任务
+python3 code/backend/main.py --scheduler
+
+# 跳过初始拉取
+python3 code/backend/main.py --no-fetch
+
+# 立即创建快照
+python3 code/backend/main.py --snapshot
+```
+
+### 前端运行模式
+
+```bash
+# 使用启动脚本（推荐）
+python3 code/frontend/run_dashboard.py
+
+# 直接使用streamlit
+cd code/frontend/dashboard
+streamlit run app.py
+```
 
 ## 配置说明
 
-### config.yaml（主配置）
+### 主配置文件 (config.yaml)
 
+#### 数据库配置
 ```yaml
 database:
-  path: database/adata.db
-  type: duckdb
-
-tushare:
-  token: YOUR_TOKEN
-  api_url: http://api.tushare.pro
-  rate_limit: 500
-
-fetch:
-  enabled: true            # 数据拉取开关
-  start_date: "20210101"   # 最早开始时间
-  check_interval: 60       # 检测间隔（分钟）
-
-snapshot:
-  enabled: true
-  interval: 30             # 快照间隔（分钟）
+  path: database/adata.db    # 主数据库路径
+  type: duckdb                # 数据库类型
 ```
 
-### table_config.yaml（表配置）
+#### Tushare API配置
+```yaml
+tushare:
+  token: YOUR_TOKEN           # API Token
+  api_url: http://8.136.22.187:8010/  # API地址
+  rate_limit: 500            # 每分钟请求限制
+  timeout: 60                # 超时时间（秒）
+```
 
-每个表的详细配置：
+#### 数据拉取配置
+```yaml
+fetch:
+  enabled: true              # 是否启用数据拉取
+  start_date: "20210101"     # 最早数据时间
+  check_interval: 60         # 检测间隔（分钟）
+  max_retries: 2             # 失败重试次数
+```
+
+#### 快照配置
+```yaml
+snapshot:
+  enabled: true              # 是否启用快照
+  interval: 30               # 快照间隔（分钟）
+  locations:                 # 快照位置（支持多个）
+    - database/adata_snapshot.db
+    - /path/to/other/location/snapshot.db
+```
+
+#### 调度器配置
+```yaml
+scheduler:
+  daily_update_time: "18:00"  # 日数据更新时间
+  weekly_update_time: "19:00" # 周数据更新时间
+  monthly_update_time: "20:00" # 月数据更新时间
+```
+
+## 常见问题
+
+### Q1: 首次启动报错"数据库文件不存在"
+
+**解决**：先运行数据库初始化脚本
+
+```bash
+python3 code/backend/init_db.py
+```
+
+### Q2: API请求失败
+
+**解决**：检查以下几点
+1. 确认Tushare Token已正确配置
+2. 检查网络连接和API地址是否可访问
+3. 确认Tushare账户积分是否充足
+4. 查看日志文件 `logs/adata.log` 了解详细错误
+
+### Q3: Dashboard无法显示数据
+
+**解决**：
+1. 确认后端服务正在运行
+2. 确认快照数据库文件存在：`database/adata_snapshot.db`
+3. 等待后端服务生成快照（首次启动需要拉取数据）
+
+### Q4: 端口被占用
+
+**解决**：修改Dashboard配置文件中的端口号
 
 ```yaml
-tables:
-  income:
-    cursor_strategy: daily_natural    # 游标策略
-    api_name: income_vip              # VIP接口
-    dependencies: [stock_basic]       # 前置表依赖
-    fetch_after_time: "20:00"         # 截至时间
-    primary_key: [ts_code, end_date, report_type]
+# code/frontend/dashboard/config/dashboard_config.yaml
+server:
+  port: 8502  # 改为其他端口
 ```
 
-## 技术栈
+### Q5: 如何重新初始化数据库
 
-- **数据库**：DuckDB（嵌入式SQL数据库）
-- **API**：Tushare Pro API（A股数据源）
-- **日志**：Python logging模块
-- **配置**：YAML格式配置文件
-- **Dashboard**：Streamlit（数据可视化）
-- **速率控制**：500次/分钟（1万积分）
+**解决**：强制重新初始化
 
-## 关键技术修复
-
-### 1. DuckDB PRIMARY KEY UPDATE BUG
-
-问题：UPDATE语句对PRIMARY KEY字段报Duplicate key错误
-
-解决：改用DELETE + INSERT方式更新游标
-
-```python
-# global_cursor_manager.py
-def update_cursor(table_name, cursor_value, record_count):
-    # 先删除旧记录
-    DELETE FROM global_cursor WHERE table_name = ?
-    # 再插入新记录
-    INSERT INTO global_cursor (...) VALUES (...)
+```bash
+python3 code/backend/init_db.py --force
 ```
 
-### 2. trade_calendar联合主键
+> ⚠️ 警告：此操作会删除现有数据库和所有数据，请谨慎操作
 
-问题：cal_date单字段主键导致exchange字段无法插入多个值
+## 数据表结构
 
-解决：PRIMARY KEY改为(exchange, cal_date)
+系统包含27张数据表，涵盖：
 
-```sql
-CREATE TABLE trade_calendar (
-    exchange VARCHAR(10),
-    cal_date DATE,
-    PRIMARY KEY (exchange, cal_date)  -- 联合主键
-);
+| 表名 | 说明 | 更新频率 |
+|------|------|----------|
+| stock_basic | 股票基本信息 | 每日 |
+| trade_calendar | 交易日历 | 每日 |
+| stock_daily_basic | 股票日行情（基本） | 每日 |
+| daily | 股票日行情 | 每日 |
+| weekly | 股票周行情 | 每周 |
+| monthly | 股票月行情 | 每月 |
+| income | 利润表 | 每季度 |
+| balancesheet | 资产负债表 | 每季度 |
+| cashflow | 现金流量表 | 每季度 |
+| fina_indicator | 财务指标 | 每季度 |
+| dividend | 分红数据 | 每日 |
+| index_basic | 指数基本信息 | 每日 |
+| index_daily | 指数日行情 | 每日 |
+| ths_concept_member | 同花顺概念股成分 | 每日 |
+| hots_user | 龙虎榜用户 | 每日 |
+| ... | ... | ... |
+
+完整数据表信息参见：[docs/数据表信息汇总.csv](design-doc/数据表信息汇总.csv)
+
+## 技术架构
+
+### 后端技术栈
+- **Python 3.8+**：主要开发语言
+- **DuckDB**：高性能列式数据库
+- **Tushare API**：A股数据源
+- **APScheduler**：定时任务调度
+- **PyYAML**：配置文件解析
+- **structlog**：结构化日志
+
+### 前端技术栈
+- **Streamlit**：数据可视化框架
+- **Plotly**：交互式图表
+
+### 设计特点
+
+1. **线程安全**：写操作加锁，保证DuckDB单写模型
+2. **并发读取**：读操作无锁，支持多线程并发
+3. **断点续传**：基于游标的增量采集，支持中断恢复
+4. **双快照**：快照同时更新多个位置，支持高可用
+5. **配置驱动**：所有行为通过配置文件控制
+
+## 开发指南
+
+### 添加新的数据采集器
+
+1. 在 `code/backend/src/collectors/` 创建新的采集器文件
+2. 继承 `BaseCollector` 类
+3. 实现 `fetch` 和 `save` 方法
+4. 在 `table_config.yaml` 中注册表配置
+
+### 自定义调度任务
+
+修改 `code/backend/config/config.yaml` 中的调度器配置：
+
+```yaml
+scheduler:
+  custom_update_time: "21:00"  # 自定义更新时间
 ```
 
-### 3. DuckDB INSERT语法
+### 扩展Dashboard功能
 
-问题：DuckDB不支持INSERT OR IGNORE
+在 `code/frontend/dashboard/components/` 添加新的组件文件，然后在 `app.py` 中引用。
 
-解决：改用INSERT...SELECT...WHERE NOT EXISTS
+## 监控和维护
 
-```sql
-INSERT INTO global_cursor (...)
-SELECT 'trade_calendar', 'yearly', '', '09:00'
-WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'trade_calendar');
+### 查看日志
+
+```bash
+# 后端日志
+tail -f logs/adata.log
+
+# Dashboard日志
+tail -f logs/dashboard.log
 ```
 
-## 后续开发计划
+### 检查数据完整性
 
-### 待完成工作
+```bash
+# 验证数据库Schema
+python3 code/backend/scripts/verify_schema.py
+```
 
-1. **真实API测试**（需配额恢复）
-   - stock_basic全量拉取
-   - trade_calendar按年拉取
-   - stock_daily按交易日拉取（验证18点判断）
-   - income按自然日拉取（验证无数据允许）
+### 生成数据摘要
 
-2. **断点续传验证**
-   - 修改游标值后重启
-   - 验证从游标+1开始拉取
+```bash
+# 生成数据表摘要
+python3 code/backend/scripts/generate_phase2_summary.py
+```
 
-3. **Dashboard完善**
-   - fetch_control.py - 数据拉取控制页面
-   - settings.py修改 - 删除end_date，新增快照配置
-   - 游标状态可视化
+## 性能优化
 
-4. **THSConceptMemberCollector特殊逻辑**
-   - 遍历ths_index_basic的ts_code列表
-   - 游标记录当前拉取的指数代码
+### 数据库优化
+- 使用DuckDB的列式存储，适合分析查询
+- 支持并行查询，提高大数据量查询性能
+- 自动索引优化，加速查询
 
-### 性能优化建议
+### API调用优化
+- 内置限流控制，避免超出Tush API限制
+- 智能重试机制，处理网络抖动
+- 批量请求优化，减少API调用次数
 
-- 批量拉取优化（一次API调用获取多只股票）
-- 并发拉取支持（ThreadPoolExecutor）
-- 数据库索引优化（覆盖索引）
-- 快照机制完善（双位置快照）
+## 贡献指南
 
-## 当前状态（2026-04-12）
+欢迎提交Issue和Pull Request！
 
-### 已完成 ✅
-
-- **27个Collector全部实现**：P0前置表(6)、P1行情表(7)、P2财务表(7)、P3资金流向(3)、P3概念板块(2)、P4游资(2)
-- **数据库初始化完成**：28张表已创建，27条游标记录已初始化
-- **VIP接口正确命名**：income_vip、fina_indicator_vip、balancesheet_vip等7个VIP接口
-- **Dashboard fetch_control重构完成**：真实游标状态展示、重置游标功能、单表控制
-- **GitHub安全上传**：config.yaml被正确忽略，Token未泄露（69个文件已上传）
-- **基础功能测试100%通过**：18项测试全部通过
-
-### 受外部限制 ⚠️
-
-- **API配额持续限制**：2026-04-12 08:47-12:17（3小时30分钟），测试显示"当前接口达到请求上限"
-- **真实数据拉取待验证**：需等待API配额恢复后测试
-
-### 建议 ⏰
-
-- **等待配额恢复**：明天（2026-04-13）上午09:00重试
-- **或今晚重试**：2026-04-12 21:00后可能恢复
-
-详细状态报告见：`tmp/项目重构完成报告_20260412.txt`
-
-## 项目统计
-
-- **开发时间**：约3小时（自主开发）
-- **Collector数量**：27个（100%完成）
-- **代码行数**：11,359行
-- **测试通过率**：100%（18项基础功能测试）
-- **VIP接口验证**：100%（7个VIP接口）
-- **游标策略覆盖**：100%（5种策略）
+1. Fork本项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启Pull Request
 
 ## 许可证
 
-MIT License
+本项目仅供学习交流使用。数据来源于Tushare，请遵守Tushare的使用协议。
 
-## 作者
+## 联系方式
 
-lengyeguxin
+- 问题反馈：提交Issue
+- 技术讨论：欢迎交流
 
-## GitHub仓库
+## 项目文档
 
-https://github.com/lengyeguxin/AData
+完整的技术文档请查看 [docs/](docs/) 目录：
 
-## 文档参考
+- 📖 [docs/README.md](docs/README.md) - 文档索引和快速导航
+- 🏗️ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - 架构设计文档
+- 🚀 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) - 部署运维文档
 
-- [Tushare Pro API文档](https://tushare.pro/document/2)
-- [详细技术设计](design-doc/DETAILED_DESIGN.md)
-- [实施计划](design-doc/IMPLEMENTATION_PLAN.md)
-- [数据表信息汇总](design-doc/数据表信息汇总.csv)
+### 文档包含内容
 
----
+**架构设计文档**：
+- 系统架构和模块设计
+- 核心组件详解
+- 数据流和存储设计
+- 性能优化和安全设计
 
-**重要提示**：
+**部署运维文档**：
+- 多种部署方式（本地/Docker/云服务器）
+- 配置说明和监控指南
+- 备份恢复和故障排查
+- 性能优化和安全加固
 
-本项目严格按照Tushare Pro API的CSV文档规范开发：
-- VIP接口名称100%正确（income_vip等）
-- 游标策略100%覆盖（none/daily_trade/daily_natural/yearly/special）
-- API参数严格按照文档（如report_type=1）
-- 截至时间判断完善（fetch_after_time支持）
+## 更新日志
 
-所有代码已通过基础功能测试（18项测试100%通过），真实API测试受限于外部配额限制。
+### v2.0.0 (2026-04-17)
+- 重新组织项目文档
+- 完善README说明
+- 添加运行模式说明
+- 补充常见问题解答
+
+### v1.1.0 (2026-04-15)
+- 实现双快照架构
+- Dashboard独立配置系统
+- 快照更新间隔调整为30分钟
+- 支持多Dashboard实例
+
+### v1.0.0 (2026-04-11)
+- 初始版本发布
+- 基础数据采集功能
+- Streamlit Dashboard
+- 定时任务调度

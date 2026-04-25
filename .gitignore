@@ -1,7 +1,9 @@
 # 数据库文件
 *.db
+*.db.*
 *.db.wal
 database/*.db
+database/*.db.*
 adata.db.backup*
 
 # 测试报告
@@ -27,7 +29,7 @@ env/
 .DS_Store
 
 # Claude配置
-CLAUDE.md
+# CLAUDE.md (removed from gitignore - we want to track it)
 
 # 临时文件
 *.tmp
@@ -37,6 +39,7 @@ CLAUDE.md
 *.yaml
 !*.example.yaml
 !table_config.yaml
+!dashboard_config.yaml  # Dashboard配置不包含敏感信息，可以提交
 
 # 测试覆盖率
 .coverage

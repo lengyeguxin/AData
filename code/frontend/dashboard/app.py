@@ -12,14 +12,16 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# 初始化Dashboard日志系统
+from dashboard.logger import setup_dashboard_logger
+setup_dashboard_logger()
+
 from dashboard.metadata import DatabaseMetadata
 from dashboard.config import get_dashboard_config_manager
 from dashboard.components.overview import render_overview
 from dashboard.components.table_list import render_table_list
 from dashboard.components.table_detail import render_table_detail
 from dashboard.components.charts import render_charts
-from dashboard.components.settings import render_settings
-from dashboard.components.fetch_control import render_fetch_control
 
 
 # 页面配置
@@ -51,9 +53,7 @@ if 'selected_table' not in st.session_state:
 page_mapping = {
     "整体概览": "overview",
     "数据表列表": "table_list",
-    "图表分析": "charts",
-    "数据拉取控制": "fetch_control",
-    "系统配置": "settings"
+    "图表分析": "charts"
 }
 
 page_mapping_reverse = {v: k for k, v in page_mapping.items()}
@@ -75,8 +75,8 @@ current_view = page_mapping_reverse.get(display_page, "整体概览")
 
 selected_view = st.sidebar.radio(
     "选择视图",
-    ["整体概览", "数据表列表", "图表分析", "数据拉取控制", "系统配置"],
-    index=["整体概览", "数据表列表", "图表分析", "数据拉取控制", "系统配置"].index(current_view),
+    ["整体概览", "数据表列表", "图表分析"],
+    index=["整体概览", "数据表列表", "图表分析"].index(current_view),
     key="navigation_select",
     on_change=on_navigation_change
 )
@@ -90,9 +90,9 @@ dashboard_config = get_dashboard_config_manager()
 db_path = dashboard_config.get_database_path()
 
 # 获取元数据查询器（提前获取，用于显示信息）
-metadata_temp = DatabaseMetadata(db_path, use_snapshot=True)
-db_display_path = metadata_temp.db_path
-snapshot_status = "快照副本只读" if metadata_temp.using_snapshot else "主数据库"
+metadata_temp = DatabaseMetadata(db_path)
+db_display_path = metadata_temp.db.db_path
+snapshot_status = "快照数据库（只读）"  # Dashboard永远使用快照数据库
 
 st.sidebar.info(f"""
 **数据库**: {db_display_path}
@@ -112,19 +112,17 @@ def get_metadata():
     dashboard_config = get_dashboard_config_manager()
     db_path = dashboard_config.get_database_path()
 
-    # 创建元数据查询器，使用快照模式
-    metadata = DatabaseMetadata(db_path, use_snapshot=True)
+    # 创建元数据查询器，强制使用快照数据库
+    metadata = DatabaseMetadata(db_path)
 
-    # 显示提示信息
-    if metadata.using_snapshot:
-        st.sidebar.success("✅ 使用快照数据库读取数据（只读模式）")
+    # 显示提示信息（DashboardDatabase已自动连接快照）
+    st.sidebar.success("✅ 使用快照数据库（只读模式，不阻塞后端）")
 
     return metadata
 
 @st.cache_resource
 def get_config_manager():
-    """缓存配置管理器（使用旧的ConfigManager用于数据拉取控制等）"""
-    # 保留旧的ConfigManager以兼容数据拉取控制等功能
+    """缓存配置管理器"""
     from dashboard.config_manager import ConfigManager
     return ConfigManager("../../backend/config/config.yaml")
 
@@ -146,12 +144,6 @@ try:
 
     elif st.session_state['current_page'] == 'charts':
         render_charts(metadata)
-
-    elif st.session_state['current_page'] == 'fetch_control':
-        render_fetch_control(config_manager)
-
-    elif st.session_state['current_page'] == 'settings':
-        render_settings(config_manager)
 
 except Exception as e:
     st.error(f"页面加载失败: {e}")

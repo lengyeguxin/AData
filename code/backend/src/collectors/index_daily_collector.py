@@ -61,35 +61,36 @@ class IndexDailyCollector(BaseCollector):
             from pathlib import Path
             import yaml
 
-            config_file = Path(__file__).parent.parent.parent / 'code' / 'backend' / 'config' / 'table_config.yaml'
+            # __file__ 在 code/backend/src/collectors/index_daily_collector.py
+            # parent = collectors, parent.parent = src, parent.parent.parent = code/backend
+            # 所以需要再上一级到项目根目录，然后找 config/table_config.yaml
+            config_file = Path(__file__).parent.parent.parent.parent / 'config' / 'table_config.yaml'
             if config_file.exists():
                 with open(config_file, 'r', encoding='utf-8') as f:
                     config = yaml.safe_load(f)
 
                 index_codes = config.get('tables', {}).get('index_daily', {}).get('index_codes', [])
 
-                if not index_codes:
-                    self.logger.warning("未配置index_codes，将拉取所有指数")
-
-        # 如果配置为空或未配置，则从index_basic表获取所有指数代码
         if not index_codes:
-            from src.core.database import Database
-            db = Database(self.db_path)
+            self.logger.error("未配置index_codes，请在table_config.yaml中配置")
+            return []
 
-            index_codes = db.execute("""
-                SELECT ts_code FROM index_basic ORDER BY ts_code
-            """)
-
-            db.close()
-            self.logger.info(f"从index_basic表获取{len(index_codes)}个指数代码")
+        self.logger.info(f"从配置文件获取{len(index_codes)}个指数代码")
 
         all_data = []
 
         # 遍历所有指数代码
-        for i, (ts_code,) in enumerate(index_codes):
+        for i, ts_code in enumerate(index_codes):
             self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}")
 
             try:
+                # 每次请求前随机休眠50～200毫秒，避免API请求过于密集
+                import time
+                import random
+                sleep_ms = random.randint(50, 200)
+                time.sleep(sleep_ms / 1000.0)
+                self.logger.debug(f"请求前休眠 {sleep_ms}ms")
+
                 # 严格按照CSV文档参数：ts_code + trade_date
                 data = self.collect(ts_code=ts_code, trade_date=trade_date)
 
@@ -161,31 +162,62 @@ class IndexDailyCollector(BaseCollector):
         Returns:
             保存的记录数
         """
+        # 获取指数代码列表（从配置文件读取）
+        from pathlib import Path
+        import yaml
+
+        # __file__ 在 code/backend/src/collectors/index_daily_collector.py
+        # parent = collectors, parent.parent = src, parent.parent.parent = code/backend
+        # 再上一级 = AData，然后找 config/table_config.yaml
+        config_file = Path(__file__).parent.parent.parent / 'config' / 'table_config.yaml'
+        self.logger.info(f"计算的配置路径为：{config_file}")
+        index_codes = []
+
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+
+            index_codes = config.get('tables', {}).get('index_daily', {}).get('index_codes', [])
+
+        if not index_codes:
+            self.logger.error("未配置index_codes，请在table_config.yaml中配置")
+            return 0
+
+        self.logger.info(f"从配置文件获取{len(index_codes)}个指数代码")
+
         # 按指数逐个拉取、保存、更新游标
         total_count = 0
         success_indices = []  # 记录成功的指数
 
-        for i, (ts_code,) in enumerate(index_codes):
+        for i, ts_code in enumerate(index_codes):
             self.logger.info(f"拉取指数数据: {i+1}/{len(index_codes)} - {ts_code}, trade_date={trade_date}")
 
             try:
+                # 每次请求前随机休眠50～200毫秒，避免API请求过于密集
+                import time
+                import random
+                sleep_ms = random.randint(50, 200)
+                time.sleep(sleep_ms / 1000.0)
+                self.logger.debug(f"请求前休眠 {sleep_ms}ms")
+
                 # 拉取该指数数据
                 data = self.collect(ts_code=ts_code, trade_date=trade_date)
 
                 if data:
-                    # 立即保存（避免竞态条件，单个指数单独插入）
+                    # 使用单个连接保存（避免频繁创建/关闭连接）
+                    from src.core.database import Database
+                    db = Database(self.db_path)
                     count = 0
                     for item in data:
                         try:
                             record = self._extract_values(item)
                             query = self._build_insert_query()
-                            db = Database(self.db_path)
                             db.execute(query, record)
-                            db.close()
                             count += 1
                         except Exception as e:
                             self.logger.error(f"指数{ts_code}: {trade_date} 保存单条失败: {e}")
 
+                    db.close()
                     total_count += count
                     success_indices.append(ts_code)
                     self.logger.info(f"指数{ts_code}: {trade_date} 保存成功 ({count}条)")
@@ -198,9 +230,10 @@ class IndexDailyCollector(BaseCollector):
                 continue
 
         # 检查：所有指数都成功
-        if len(success_indices) != len(index_codes):
-            self.logger.error(f"拉取完成: trade_date={trade_date}, 失败{len(success_indices)}/{len(index_codes)}个指数，原因：部分指数失败")
-            raise Exception(f"部分指数拉取失败: {len(success_indices)}/{len(index_codes)}个指数")
+        failed_count = len(index_codes) - len(success_indices)
+        if failed_count > 0:
+            self.logger.error(f"拉取完成: trade_date={trade_date}, 失败{failed_count}/{len(index_codes)}个指数，原因：部分指数失败")
+            raise Exception(f"部分指数拉取失败: {failed_count}/{len(index_codes)}个指数")
 
         self.logger.info(f"拉取完成: trade_date={trade_date}, 成功{total_count}/{len(index_codes) * 100}条记录")
         return total_count

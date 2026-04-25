@@ -7,6 +7,7 @@
 - 数据存在性检查：避免重复爬取
 - 18点时间判断：确保数据完整性
 - 按优先级顺序拉取：P0 → P1 → P2 → P3 → P4
+- 运行状态管理：全局running标志，支持调度器检查
 """
 
 import sys
@@ -23,6 +24,9 @@ from src.core.logger import get_logger
 
 class DataFetcher:
     """统一数据拉取控制器"""
+
+    # 全局运行状态标志（类变量，供调度器检查）
+    running = False
 
     # 前置表固定顺序（必须先拉取）
     PRIORITY_ORDER = {
@@ -105,26 +109,46 @@ class DataFetcher:
         启动数据拉取（入口方法）
 
         流程：
-        1. 检查fetch.enabled开关
-        2. 加载交易日历到内存
-        3. 按优先级顺序拉取（P0 → P1 → P2 → P3 → P4）
-        4. 每张表判断游标进度，断点续传
-        5. 更新游标（根据策略决定更新时机）
+        1. 设置running标志为True（表示正在拉取）
+        2. 检查fetch.enabled开关
+        3. 加载交易日历到内存
+        4. 按优先级顺序拉取（P0 → P1 → P2 → P3 → P4）
+        5. 每张表判断游标进度，断点续传
+        6. 更新游标（根据策略决定更新时机）
+        7. 设置running标志为False（表示拉取完成）
         """
-        if not self.fetch_enabled:
-            self.logger.info("数据拉取已禁用（fetch.enabled=false）")
-            return
+        # 设置运行状态（正在拉取）
+        DataFetcher.running = True
+        self.logger.info("✓ 数据拉取任务启动（running=True）")
 
-        self.logger.info("=" * 80)
-        self.logger.info("数据拉取控制器启动")
-        self.logger.info("=" * 80)
-        self.logger.info(f"启动时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        self.logger.info(f"数据库路径: {self.db_path}")
-        self.logger.info(f"交易日历已加载: {len(self.trade_calendar)}个交易日")
-        self.logger.info("")
+        try:
+            if not self.fetch_enabled:
+                self.logger.info("数据拉取已禁用（fetch.enabled=false）")
+                DataFetcher.running = False
+                return
 
-        # 按优先级顺序拉取所有表
-        self._fetch_all_tables()
+            self.logger.info("=" * 80)
+            self.logger.info("数据拉取控制器启动")
+            self.logger.info("=" * 80)
+            self.logger.info(f"启动时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            self.logger.info(f"数据库路径: {self.db_path}")
+            self.logger.info(f"交易日历已加载: {len(self.trade_calendar)}个交易日")
+            self.logger.info("")
+
+            # 按优先级顺序拉取所有表
+            self._fetch_all_tables()
+
+        except Exception as e:
+            self.logger.error(f"数据拉取异常: {e}")
+            # 异常情况下也要设置running=False，避免调度器一直跳过
+            DataFetcher.running = False
+            self.logger.info("✗ 数据拉取异常终止（running=False）")
+            raise
+
+        finally:
+            # 确保无论如何都设置running=False（拉取完成）
+            DataFetcher.running = False
+            self.logger.info("✓ 数据拉取任务完成（running=False）")
 
     def _load_trade_calendar(self) -> List[str]:
         """
@@ -231,9 +255,10 @@ class DataFetcher:
         # 1. 判断是否需要拉取（游标+前置表+时间）
         if not self.cursor_manager.should_fetch(table_name):
             cursor = self.cursor_manager.get_cursor(table_name)
+            fetch_time = cursor.get('fetch_after_time', 'N/A')
             self.logger.info(
-                f"{table_name}: 游标已是最新或前置表未完成"
-                f"(cursor={cursor['cursor_value']}, status={cursor['status']})"
+                f"{table_name}: 未到拉取时间或游标已最新"
+                f"(cursor={cursor['cursor_value']}, status={cursor['status']}, fetch_after={fetch_time})"
             )
             return
 
@@ -481,7 +506,11 @@ class DataFetcher:
             for trade_date in trade_dates:
                 # 使用重试机制拉取
                 def fetch_daily():
-                    return collector.run(trade_date=trade_date)
+                    # index_daily特殊处理：使用run_by_date方法
+                    if table_name == 'index_daily':
+                        return collector.run_by_date(trade_date=trade_date)
+                    else:
+                        return collector.run(trade_date=trade_date)
 
                 count = self._retry_fetch(
                     table_name, trade_date,
@@ -494,6 +523,12 @@ class DataFetcher:
                     total_count += count
                     if count > 0:
                         self.logger.info(f"{table_name}: {trade_date} 拉取成功 ({count}条)")
+                    elif count == 0:
+                        # 无数据但不算失败（同花顺和游资早期可能没有数据）
+                        # _retry_fetch已记录到no_data_dates.json并返回0，这里只需更新游标
+                        self.cursor_manager.update_cursor(table_name, trade_date, 0)
+                        self.logger.info(f"{table_name}: 游标更新为 {trade_date}（无数据，已记录）")
+                        continue
                     # 每拉取成功一个批次，立即更新游标到该日期
                     self.cursor_manager.update_cursor(table_name, trade_date, count)
                     self.logger.info(f"{table_name}: 游标更新为 {trade_date}")
@@ -860,6 +895,10 @@ class DataFetcher:
             # 无游标，标记为completed
             return 'completed'
 
+        elif cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
+            # 特殊游标（ths_concept_member），遍历完成后标记为completed
+            return 'completed'
+
         # DAILY_TRADE和DAILY_NATURAL不应使用此方法
         # 如果被调用，返回空字符串（不会发生）
         return ''
@@ -911,10 +950,10 @@ class DataFetcher:
                 self.logger.error(f"保存无数据记录失败: {e}")
                 return
 
-            # 记录WARNING日志
-            self.logger.warning(
-                f"{table_name}: {date_str} 重试{self.max_retries+1}次后仍然无数据，"
-                f"已记录到 no_data_dates.json"
+            # 记录INFO日志（而不是WARNING，因为这是正常情况）
+            self.logger.info(
+                f"{table_name}: {date_str} 无数据（重试{self.max_retries+1}次后），"
+                f"已记录到 no_data_dates.json，继续拉取后续日期"
             )
 
     def _retry_fetch_none(self, table_name: str, fetch_func) -> Optional[int]:
@@ -1008,7 +1047,16 @@ class DataFetcher:
                 else:
                     # 无数据的情况
                     if date_type == 'trade_date':
-                        # 行情表无数据是异常
+                        # 行情表无数据：检查是否是允许无数据的特殊表
+                        special_tables = ['ths_moneyflow', 'ths_concept_moneyflow',
+                                         'ths_industry_moneyflow', 'hots_trader_detail']
+
+                        if table_name in special_tables:
+                            # 特殊表允许无数据（早期可能无数据），记录并返回0
+                            self._record_no_data_date(table_name, date_str)
+                            return 0
+
+                        # 其他行情表无数据是异常
                         if attempt < self.max_retries:
                             self.logger.warning(
                                 f"{table_name}: {date_str} 返回空数据，重试 {attempt+1}/{self.max_retries+1}"

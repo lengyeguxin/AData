@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS balancesheet (
     report_type VARCHAR(20),  -- 报表类型
     comp_type VARCHAR(20),  -- 公司类型(1一般工商业2银行3保险4证券)
     end_type VARCHAR(20),  -- 报告期类型
-    total_share REAL,  -- 期末总股本
+    total_share DOUBLE,  -- 期末总股本
     cap_rese REAL,  -- 资本公积金
     undistr_porfit REAL,  -- 未分配利润
     surplus_rese REAL,  -- 盈余公积金
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS balancesheet (
     money_cap REAL,  -- 货币资金
     trad_asset REAL,  -- 交易性金融资产
     notes_receiv REAL,  -- 应收票据
-    accounts_receiv INTEGER,  -- 应收账款
+    accounts_receiv REAL,  -- 应收账款
     oth_receiv REAL,  -- 其他应收款
     prepayment REAL,  -- 预付款项
     div_receiv REAL,  -- 应收股利

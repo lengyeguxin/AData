@@ -192,7 +192,7 @@ class GlobalCursorManager:
 
     def should_fetch(self, table_name: str) -> bool:
         """
-        判断是否需要拉取（检查游标+截至时间+前置表）
+        判断是否需要拉取（单线程：只通过游标值判断）
 
         Args:
             table_name: 表名
@@ -203,26 +203,23 @@ class GlobalCursorManager:
         cursor = self.get_cursor(table_name)
 
         if not cursor:
-            return False
+            return True  # 首次拉取
 
-        # 1. 检查状态（如果正在运行，不拉取）
-        if cursor['status'] == self.STATUS_RUNNING:
-            return False
+        # 只通过 cursor_value 判断是否需要拉取
+        # None：从未拉取过，需要拉取
+        # 有值：已拉取过，通过日期/时间判断是否需要更新
+        cursor_value = cursor['cursor_value']
 
-        # 2. 检查前置表依赖
-        if not self.check_dependencies(table_name):
-            return False
+        if cursor_value is None or cursor_value == '':
+            return True  # 从未拉取过，需要拉取
 
-        # 3. 检查截至时间（18点判断）
-        # 注意：首次拉取（status=pending）跳过时间检查，允许任何时间拉取
-        if cursor['status'] != self.STATUS_PENDING:
-            if not self.check_fetch_time(table_name):
-                return False
-
-        # 4. 检查游标是否已是最新的
+        # 已拉取过，检查游标是否最新
+        # 游标最新 → 不拉取
+        # 游标不是最新 → 立即拉取（忽略时间限制）
         if self._is_cursor_up_to_date(table_name, cursor):
             return False
 
+        # 游标不是最新（有历史gap），直接允许拉取
         return True
 
     def check_dependencies(self, table_name: str) -> bool:
@@ -382,33 +379,47 @@ class GlobalCursorManager:
                 ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, NOW())
             """
 
-            # 使用Database类统一管理连接
+            # 使用Database类统一管理连接，使用事务包裹DELETE+INSERT
             db = Database(self.db_path)
 
-            # 1. 获取原始记录信息
-            result = db.execute(query_get, (table_name,))
-            if not result:
-                self.logger.error(f"No cursor found for {table_name}")
+            try:
+                # 开启事务（原子性，避免索引损坏）
+                db.execute("BEGIN TRANSACTION")
+
+                # 1. 获取原始记录信息
+                result = db.execute(query_get, (table_name,))
+                if not result:
+                    self.logger.error(f"No cursor found for {table_name}")
+                    db.execute("ROLLBACK")
+                    db.close()
+                    return
+
+                cursor_strategy = result[0][0]
+                dependencies = result[0][1]
+                fetch_after_time = result[0][2]
+                created_at = result[0][3]
+
+                # 2. 删除旧记录
+                db.execute(query_delete, (table_name,))
+
+                # 3. 插入新记录（更新cursor_value和status）
+                db.execute(query_insert, (
+                    table_name, cursor_strategy, cursor_value, dependencies,
+                    fetch_after_time, record_count, self.STATUS_SUCCESS, created_at
+                ))
+
+                # 提交事务
+                db.execute("COMMIT")
+                self.logger.info(f"Cursor updated successfully for {table_name}")
+
+            except Exception as e:
+                # 异常时回滚
+                db.execute("ROLLBACK")
+                self.logger.error(f"Failed to update cursor for {table_name}: {e}")
+                raise
+
+            finally:
                 db.close()
-                return
-
-            cursor_strategy = result[0][0]
-            dependencies = result[0][1]
-            fetch_after_time = result[0][2]
-            created_at = result[0][3]
-
-            # 2. 删除旧记录
-            db.execute(query_delete, (table_name,))
-
-            # 3. 插入新记录（更新cursor_value和status）
-            db.execute(query_insert, (
-                table_name, cursor_strategy, cursor_value, dependencies,
-                fetch_after_time, record_count, self.STATUS_SUCCESS, created_at
-            ))
-
-            db.close()
-
-            self.logger.info(f"Cursor updated successfully for {table_name}")
 
     def mark_running(self, table_name: str):
         """标记为正在拉取（线程安全，DuckDB兼容：DELETE + INSERT）"""
@@ -436,33 +447,48 @@ class GlobalCursorManager:
 
             db = Database(self.db_path)
 
-            # 1. 获取原始记录信息
-            result = db.execute(query_get, (table_name,))
-            if not result:
-                self.logger.error(f"No cursor found for {table_name}")
+            try:
+                # 开启事务（原子性，避免索引损坏）
+                db.execute("BEGIN TRANSACTION")
+
+                # 1. 获取原始记录信息
+                result = db.execute(query_get, (table_name,))
+                if not result:
+                    self.logger.error(f"No cursor found for {table_name}")
+                    db.execute("ROLLBACK")
+                    db.close()
+                    return
+
+                row = result[0]
+                cursor_strategy = row[0]
+                cursor_value = row[1]
+                dependencies = row[2]
+                fetch_after_time = row[3]
+                last_fetch_time = row[4]
+                last_record_count = row[5]
+                created_at = row[6]
+
+                # 2. 删除旧记录
+                db.execute(query_delete, (table_name,))
+
+                # 3. 插入新记录（更新status为running）
+                db.execute(query_insert, (
+                    table_name, cursor_strategy, cursor_value, dependencies,
+                    fetch_after_time, last_fetch_time, last_record_count,
+                    self.STATUS_RUNNING, created_at
+                ))
+
+                # 提交事务
+                db.execute("COMMIT")
+
+            except Exception as e:
+                # 异常时回滚
+                db.execute("ROLLBACK")
+                self.logger.error(f"Failed to mark {table_name} as running: {e}")
+                raise
+
+            finally:
                 db.close()
-                return
-
-            row = result[0]
-            cursor_strategy = row[0]
-            cursor_value = row[1]
-            dependencies = row[2]
-            fetch_after_time = row[3]
-            last_fetch_time = row[4]
-            last_record_count = row[5]
-            created_at = row[6]
-
-            # 2. 删除旧记录
-            db.execute(query_delete, (table_name,))
-
-            # 3. 插入新记录（更新status为running）
-            db.execute(query_insert, (
-                table_name, cursor_strategy, cursor_value, dependencies,
-                fetch_after_time, last_fetch_time, last_record_count,
-                self.STATUS_RUNNING, created_at
-            ))
-
-            db.close()
 
     def mark_failed(self, table_name: str, error_message: str = ""):
         """标记为失败（线程安全，DuckDB兼容：DELETE + INSERT）"""
@@ -490,33 +516,48 @@ class GlobalCursorManager:
 
             db = Database(self.db_path)
 
-            # 1. 获取原始记录信息
-            result = db.execute(query_get, (table_name,))
-            if not result:
-                self.logger.error(f"No cursor found for {table_name}")
+            try:
+                # 开启事务（原子性，避免索引损坏）
+                db.execute("BEGIN TRANSACTION")
+
+                # 1. 获取原始记录信息
+                result = db.execute(query_get, (table_name,))
+                if not result:
+                    self.logger.error(f"No cursor found for {table_name}")
+                    db.execute("ROLLBACK")
+                    db.close()
+                    return
+
+                row = result[0]
+                cursor_strategy = row[0]
+                cursor_value = row[1]
+                dependencies = row[2]
+                fetch_after_time = row[3]
+                last_fetch_time = row[4]
+                last_record_count = row[5]
+                created_at = row[6]
+
+                # 2. 删除旧记录
+                db.execute(query_delete, (table_name,))
+
+                # 3. 插入新记录（更新status为failed）
+                db.execute(query_insert, (
+                    table_name, cursor_strategy, cursor_value, dependencies,
+                    fetch_after_time, last_fetch_time, last_record_count,
+                    self.STATUS_FAILED, created_at
+                ))
+
+                # 提交事务
+                db.execute("COMMIT")
+
+            except Exception as e:
+                # 异常时回滚
+                db.execute("ROLLBACK")
+                self.logger.error(f"Failed to mark {table_name} as failed: {e}")
+                raise
+
+            finally:
                 db.close()
-                return
-
-            row = result[0]
-            cursor_strategy = row[0]
-            cursor_value = row[1]
-            dependencies = row[2]
-            fetch_after_time = row[3]
-            last_fetch_time = row[4]
-            last_record_count = row[5]
-            created_at = row[6]
-
-            # 2. 删除旧记录
-            db.execute(query_delete, (table_name,))
-
-            # 3. 插入新记录（更新status为failed）
-            db.execute(query_insert, (
-                table_name, cursor_strategy, cursor_value, dependencies,
-                fetch_after_time, last_fetch_time, last_record_count,
-                self.STATUS_FAILED, created_at
-            ))
-
-            db.close()
 
     def should_update_cursor(self, table_name: str, has_data: bool) -> bool:
         """
@@ -631,13 +672,44 @@ class GlobalCursorManager:
             return cursor_value == current_year
 
         elif cursor_strategy == self.CURSOR_STRATEGY_NONE:
-            # 一次性数据：检查是否已完成
-            return cursor_value == 'completed'
+            # 一次性数据（基础信息表）：月更新策略
+            # 检查last_fetch_time是否在本月
+            last_fetch_time = cursor.get('last_fetch_time')
+            if last_fetch_time:
+                try:
+                    # 解析last_fetch_time
+                    if isinstance(last_fetch_time, str):
+                        last_date = datetime.strptime(last_fetch_time.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                    else:
+                        last_date = last_fetch_time
+
+                    # 比较月份：同月则不更新，不同月则更新
+                    current_month = now.strftime('%Y%m')
+                    last_month = last_date.strftime('%Y%m')
+                    return current_month == last_month
+                except:
+                    return False
+            return False  # 没有last_fetch_time，需要拉取
 
         elif cursor_strategy == self.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
-            # 特殊游标（ths_concept_member）：检查是否遍历完所有指数
-            # 这里需要额外逻辑判断是否遍历完ths_index_basic的所有指数
-            return False  # 简化处理，总是需要检查
+            # 特殊游标（ths_concept_member）：月更新策略
+            # 检查last_fetch_time是否在本月
+            last_fetch_time = cursor.get('last_fetch_time')
+            if last_fetch_time:
+                try:
+                    # 解析last_fetch_time
+                    if isinstance(last_fetch_time, str):
+                        last_date = datetime.strptime(last_fetch_time.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                    else:
+                        last_date = last_fetch_time
+
+                    # 比较月份：同月则不更新，不同月则更新
+                    current_month = now.strftime('%Y%m')
+                    last_month = last_date.strftime('%Y%m')
+                    return current_month == last_month
+                except:
+                    return False
+            return False  # 没有last_fetch_time，需要拉取
 
         return False
 

@@ -2,10 +2,17 @@
 定时任务调度器
 
 功能：
-- 18:00定时拉取日线数据
+- 间隔检查模式：每隔check_interval分钟检查是否需要拉取数据
+- 如果任务正在运行 → 跳过（max_instances=1）
+- 如果任务未运行 → 启动拉取
 - 30分钟定时快照生成
-- 周/月线数据定时拉取
+- 1小时定时WAL checkpoint
 - 异常处理和重试机制
+
+优势：
+- 避免长时间拉取导致定时任务被跳过
+- 更灵活的调度机制
+- 自动适应数据拉取时长变化
 """
 
 import sys
@@ -47,11 +54,11 @@ class DataScheduler:
 
         # 从配置读取时间参数
         scheduler_config = config.get('scheduler', {})
-        self.daily_update_time = scheduler_config.get('daily_update_time', '18:00')
         self.snapshot_interval = config.get('snapshot', {}).get('interval', 30)
+        self.check_interval = config.get('fetch', {}).get('check_interval', 60)
 
         self.logger.info(f"调度器初始化完成")
-        self.logger.info(f"日线更新时间: {self.daily_update_time}")
+        self.logger.info(f"数据拉取检查间隔: {self.check_interval}分钟")
         self.logger.info(f"快照间隔: {self.snapshot_interval}分钟")
 
     def start(self):
@@ -68,7 +75,10 @@ class DataScheduler:
         # 2. 快照定时生成任务（每30分钟）
         self.add_snapshot_job()
 
-        # 3. 启动调度器
+        # 3. WAL checkpoint任务（每1小时）
+        self.add_checkpoint_job()
+
+        # 4. 启动调度器
         self.scheduler.start()
         self.logger.info("✓ 定时任务调度器已启动")
 
@@ -80,30 +90,31 @@ class DataScheduler:
 
     def add_daily_fetch_job(self):
         """
-        添加日线数据定时拉取任务
+        添加数据拉取定时任务（间隔检查模式）
 
-        时间：每天18:00（可配置）
-        任务：拉取所有需要更新的数据
+        机制：每隔check_interval分钟检查一次
+              - 如果任务正在运行 → 跳过（max_instances=1）
+              - 如果任务未运行 → 启动拉取
+
+        优势：避免长时间拉取导致定时任务被跳过
         """
-        # 解析时间
-        hour, minute = self.daily_update_time.split(':')
-        hour = int(hour)
-        minute = int(minute)
+        # 从配置读取检查间隔（分钟）
+        check_interval = self.config.get('fetch', {}).get('check_interval', 60)
 
-        # 创建cron触发器
-        trigger = CronTrigger(hour=hour, minute=minute)
+        # 创建interval触发器（每隔check_interval分钟检查一次）
+        trigger = IntervalTrigger(minutes=check_interval)
 
         # 添加任务
         self.scheduler.add_job(
             self.fetch_daily_data,
             trigger,
             id='daily_fetch',
-            name='日线数据拉取',
+            name='数据拉取（间隔检查）',
             max_instances=1,  # 只允许一个实例运行
-            misfire_grace_time=3600  # 允许1小时内的延迟执行
+            misfire_grace_time=600  # 允许10分钟内的延迟执行
         )
 
-        self.logger.info(f"✓ 已添加日线数据拉取任务: 每天{self.daily_update_time}")
+        self.logger.info(f"✓ 已添加数据拉取任务: 每{check_interval}分钟检查一次")
 
     def add_snapshot_job(self):
         """
@@ -127,26 +138,61 @@ class DataScheduler:
 
         self.logger.info(f"✓ 已添加快照生成任务: 每{self.snapshot_interval}分钟")
 
+    def add_checkpoint_job(self):
+        """
+        添加WAL checkpoint定时任务
+
+        时间：每1小时
+        任务：执行checkpoint，将WAL合并到主数据库文件
+        """
+        # 创建interval触发器（每1小时）
+        trigger = IntervalTrigger(hours=1)
+
+        # 添加任务
+        self.scheduler.add_job(
+            self.execute_checkpoint,
+            trigger,
+            id='checkpoint',
+            name='WAL Checkpoint',
+            max_instances=1,
+            misfire_grace_time=300  # 允许5分钟内的延迟执行
+        )
+
+        self.logger.info(f"✓ 已添加checkpoint任务: 每1小时")
+
     def fetch_daily_data(self):
         """
-        拉取日线数据任务
+        拉取数据任务（检查running状态）
 
         任务内容：
-        - 拉取所有需要更新的表
+        - 检查DataFetcher.running状态
+        - 如果running=True（任务正在运行）→ 跳过
+        - 如果running=False（任务未运行）→ 启动拉取
         - 异常处理和日志记录
         """
         self.logger.info("=" * 80)
-        self.logger.info("开始定时拉取日线数据...")
+        self.logger.info("定时检查：是否需要拉取数据")
         self.logger.info(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        # 检查running状态
+        from src.core.data_fetcher import DataFetcher
+
+        if DataFetcher.running:
+            self.logger.info("⚠️  数据拉取任务正在运行（running=True）→ 跳过本次触发")
+            self.logger.info("=" * 80)
+            return
+
+        self.logger.info("✓ 数据拉取任务未运行（running=False）→ 启动拉取")
+        self.logger.info("=" * 80)
 
         try:
             # 调用DataFetcher拉取数据
             self.fetcher.start()
 
-            self.logger.info("✓ 日线数据拉取完成")
+            self.logger.info("✓ 数据拉取完成")
 
         except Exception as e:
-            self.logger.error(f"✗ 日线数据拉取失败: {e}")
+            self.logger.error(f"✗ 数据拉取失败: {e}")
             # 发送通知（待实现）
 
         self.logger.info("=" * 80)
@@ -181,6 +227,31 @@ class DataScheduler:
         except Exception as e:
             self.logger.error(f"✗ 快照生成失败: {e}")
             # 发送通知（待实现）
+
+    def execute_checkpoint(self):
+        """
+        执行WAL checkpoint任务
+
+        任务内容：
+        - 执行PRAGMA force_checkpoint
+        - 将WAL合并到主数据库文件
+        - 减少WAL文件大小
+        """
+        self.logger.info("开始执行checkpoint...")
+
+        try:
+            # 使用Database类的checkpoint方法
+            db = Database('database/adata.db')
+            success = db.checkpoint()
+            db.close()
+
+            if success:
+                self.logger.info("✓ Checkpoint执行成功，WAL已合并到数据库文件")
+            else:
+                self.logger.warning("⚠️ Checkpoint执行失败")
+
+        except Exception as e:
+            self.logger.error(f"✗ Checkpoint执行失败: {e}")
 
     def get_jobs_status(self) -> Dict:
         """

@@ -31,14 +31,16 @@ def render_table_list(metadata: DatabaseMetadata):
     with col2:
         sort_by = st.selectbox(
             "排序方式",
-            ["表名", "记录数", "最新数据时间", "表大小"],
+            ["分类", "表名", "记录数", "最新数据时间", "表大小"],
+            index=0,  # 默认选择"分类"
             key="sort_by"
         )
 
     with col3:
         sort_order = st.selectbox(
             "排序顺序",
-            ["降序", "升序"],
+            ["升序", "降序"],
+            index=0,  # 默认选择"升序"
             key="sort_order"
         )
 
@@ -58,7 +60,22 @@ def render_table_list(metadata: DatabaseMetadata):
     # 排序
     reverse = (sort_order == "降序")
 
-    if sort_by == "表名":
+    # 分类优先级映射
+    category_priority = {
+        "P0基础": 0,
+        "P1行情": 1,
+        "P2财务": 2,
+        "P3资金流向(THS)": 3,
+        "P3概念板块": 3,
+        "P4游资": 4,
+        "P5滚动": 5,
+        "系统表": 6
+    }
+
+    if sort_by == "分类":
+        # 按分类优先级排序
+        tables_info.sort(key=lambda x: category_priority.get(x['category'], 99), reverse=reverse)
+    elif sort_by == "表名":
         tables_info.sort(key=lambda x: x['table_name'], reverse=reverse)
     elif sort_by == "记录数":
         tables_info.sort(key=lambda x: x['row_count'], reverse=reverse)
@@ -86,40 +103,44 @@ def render_table_list(metadata: DatabaseMetadata):
     }
     .field-name {
         display: inline-block;
-        min-width: 320px;
-        max-width: 320px;
+        min-width: 400px;
+        max-width: 400px;
         font-weight: bold;
+        text-align: left;
     }
     .field-category {
         display: inline-block;
-        min-width: 100px;
-        max-width: 100px;
+        min-width: 150px;
+        max-width: 150px;
+        text-align: left;
     }
     .field-count {
         display: inline-block;
-        min-width: 120px;
-        max-width: 120px;
-        text-align: right;
+        min-width: 150px;
+        max-width: 150px;
+        text-align: left;
     }
     .field-size {
         display: inline-block;
-        min-width: 120px;
-        max-width: 120px;
-        text-align: right;
+        min-width: 150px;
+        max-width: 150px;
+        text-align: left;
     }
     .field-date {
         display: inline-block;
-        min-width: 140px;
-        max-width: 140px;
+        min-width: 180px;
+        max-width: 180px;
+        text-align: left;
     }
     .field-freq {
         display: inline-block;
-        min-width: 120px;
-        max-width: 120px;
+        min-width: 150px;
+        max-width: 150px;
+        text-align: left;
     }
     .separator {
         color: #999;
-        margin: 0 10px;
+        margin: 0 15px;
     }
     </style>
     """, unsafe_allow_html=True)

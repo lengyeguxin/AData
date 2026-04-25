@@ -198,7 +198,7 @@ tables:
     - 000016.SH
     - 000905.SH
     - 000688.SH
-    - 000680.SH
+    - 399680.SZ
   etf_daily:
     cursor_strategy: daily_trade
     update_frequency: daily
@@ -488,6 +488,7 @@ tables:
       trade_date: '{游标+1}'
     cursor_field: trade_date
     cursor_example: '20260409'
+    initial_cursor: '20220901'  # 游资接口从2022-09-01开始有数据
     time_check: true
     doc_url: https://tushare.pro/document/2?doc_id=273
     description: 游资交易明细数据

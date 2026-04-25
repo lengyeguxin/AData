@@ -1,0 +1,21 @@
+[Unit]
+Description=AData Frontend - Dashboard监控面板
+After=network.target
+
+[Service]
+Type=simple
+User=my
+WorkingDirectory=/home/my/claude-project/AData
+Environment="PATH=/home/my/claude-project/AData/venv/bin:/usr/bin"
+# 确保logs目录存在
+ExecStartPre=/bin/mkdir -p /home/my/claude-project/AData/logs
+ExecStart=/home/my/claude-project/AData/venv/bin/python3 /home/my/claude-project/AData/code/frontend/run_dashboard.py
+Restart=on-failure
+RestartSec=10
+# 不使用systemd日志重定向，让Python程序自己管理日志
+# Dashboard的日志已通过logger.py配置输出到dashboard.log
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

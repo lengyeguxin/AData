@@ -9,11 +9,14 @@ AData后端启动入口
 5. Dashboard启动（可选）
 
 使用方法：
-    python code/backend/main.py                    # 集成启动（拉取数据+定时任务）
+    python code/backend/init_db.py                 # 首次部署：初始化数据库（仅执行一次）
+    python code/backend/main.py                    # 启动后端（拉取数据+定时任务）
     python code/backend/main.py --fetch            # 仅拉取数据（一次性）
     python code/backend/main.py --scheduler        # 仅启动定时任务
     python code/backend/main.py --no-fetch         # 跳过初始拉取
     python code/backend/main.py --snapshot         # 立即创建快照
+
+注意：首次部署请先运行 init_db.py 初始化数据库，再运行 main.py 启动服务
 """
 
 import sys
@@ -53,8 +56,30 @@ def load_config(config_path: str) -> dict:
 
 
 def initialize_database(db_path: str) -> Database:
-    """初始化数据库（创建完整表结构）"""
-    logger.info(f"初始化数据库: {db_path}")
+    """
+    连接数据库并验证Schema完整性
+
+    注意：此函数不会创建表结构。如需初始化数据库，请先运行：
+        python code/backend/init_db.py
+    """
+    logger.info(f"连接数据库: {db_path}")
+
+    db_file = Path(db_path)
+
+    # 检查数据库文件是否存在
+    if not db_file.exists():
+        logger.error("=" * 80)
+        logger.error("❌ 数据库文件不存在")
+        logger.error("=" * 80)
+        logger.error(f"数据库路径: {db_path}")
+        logger.error("")
+        logger.error("首次部署请先运行初始化脚本：")
+        logger.error("  python code/backend/init_db.py")
+        logger.error("")
+        logger.error("然后重新启动：")
+        logger.error("  python code/backend/main.py")
+        logger.error("=" * 80)
+        raise FileNotFoundError(f"数据库文件不存在，请先运行 init_db.py 初始化: {db_path}")
 
     db = Database(db_path)
 
@@ -66,35 +91,18 @@ def initialize_database(db_path: str) -> Database:
     expected_table_count = 28
 
     if len(existing_tables) < expected_table_count:
-        # 数据库表不完整，需要创建缺失的表
-        logger.info(f"数据库现有{len(existing_tables)}张表，需要初始化完整Schema（期望{expected_table_count}张表）")
+        logger.error("=" * 80)
+        logger.error("❌ 数据库Schema不完整")
+        logger.error("=" * 80)
+        logger.error(f"数据库路径: {db_path}")
+        logger.error(f"现有表数: {len(existing_tables)}, 期望: {expected_table_count}")
+        logger.error("")
+        logger.error("请重新运行初始化脚本重建数据库：")
+        logger.error("  python code/backend/init_db.py --force")
+        logger.error("=" * 80)
+        raise RuntimeError(f"数据库Schema不完整（{len(existing_tables)}表），请运行 init_db.py --force 重建")
 
-        schema_dir = project_root / 'database' / 'schemas'
-        schema_files = sorted(schema_dir.glob('*_schema.sql'))
-
-        logger.info(f"找到{len(schema_files)}个Schema文件")
-
-        for schema_file in schema_files:
-            logger.info(f"执行: {schema_file.name}")
-            with open(schema_file, 'r', encoding='utf-8') as f:
-                schema_sql = f.read()
-            try:
-                db.execute(schema_sql)
-            except Exception as e:
-                # 如果表已存在，跳过（DuckDB CREATE TABLE IF NOT EXISTS）
-                if "Table with name" in str(e) and "already exists" in str(e):
-                    logger.info(f"  表已存在，跳过: {schema_file.name}")
-                else:
-                    logger.error(f"  Schema执行失败: {e}")
-                    raise
-
-        # 验证表数量
-        result2 = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
-        final_tables = [row[0] for row in result2]
-        logger.info(f"✓ Schema初始化完成（{len(final_tables)}张表）")
-
-    else:
-        logger.info(f"数据库已有完整Schema（{len(existing_tables)}张表），跳过初始化")
+    logger.info(f"✓ 数据库连接成功（{len(existing_tables)}张表）")
 
     return db
 
@@ -198,7 +206,7 @@ def main():
         return
 
     # 模式3：集成启动（默认）
-    logger.info("启动模式：集成启动（数据拉取+定时任务）")
+    logger.info("启动模式：集成启动（先拉取数据，再启动调度器）")
 
     # 4. 立即创建快照（如果指定）
     if args.snapshot:
@@ -209,21 +217,21 @@ def main():
         else:
             logger.info("快照功能已禁用（snapshot.enabled=false）")
 
-    # 5. 检查数据拉取开关
+    # 5. 项目启动时，先进行一次数据拉取
     fetch_enabled = config.get('fetch', {}).get('enabled', True)
 
     if not args.no_fetch and fetch_enabled:
-        logger.info("数据拉取已启用（fetch.enabled=true）")
-        logger.info("开始拉取数据...")
+        logger.info("项目启动，开始首次数据拉取...")
+        logger.info("设置 running=True（数据正在拉取）")
 
-        # 使用DataFetcher拉取数据
+        # 使用DataFetcher拉取数据（会自动设置running状态）
         fetcher = DataFetcher(db_path, config)
         fetcher.start()
-        logger.info("✓ 数据拉取完成")
+        logger.info("✓ 首次数据拉取完成（running=False）")
     else:
-        logger.info("数据拉取已禁用（fetch.enabled=false 或 --no-fetch）")
+        logger.info("首次数据拉取已禁用（fetch.enabled=false 或 --no-fetch）")
 
-    # 6. 启动定时任务调度器
+    # 6. 启动定时任务调度器（快照/checkpoint立即运行，数据拉取按check_interval检查）
     scheduler_config = config.get('scheduler', {})
     if scheduler_config.get('enabled', True):
         logger.info("启动定时任务调度器...")
@@ -237,8 +245,13 @@ def main():
         for job_id, job_info in status.items():
             logger.info(f"  {job_info['name']}: 下次执行 {job_info['next_run_time']}")
 
-        # 保持运行
+        # 调度器会每隔check_interval检查running状态并执行数据拉取
+        logger.info("调度器将每隔check_interval分钟检查running状态并拉取数据")
+        logger.info("  - running=True → 跳过（任务正在运行）")
+        logger.info("  - running=False → 启动拉取（任务未运行）")
         logger.info("按Ctrl+C停止...")
+
+        # 保持运行
         try:
             import time
             while True:

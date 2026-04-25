@@ -143,3 +143,17 @@ class Database:
         """
         query = f"DESCRIBE {table_name}"
         return self.execute(query)
+
+    def checkpoint(self):
+        """
+        执行checkpoint操作，将WAL合并到主数据库文件
+
+        用于定期清理WAL文件，减少文件大小
+        """
+        try:
+            self.conn.execute("PRAGMA force_checkpoint")
+            self.logger.info("Checkpoint执行成功，WAL已合并到数据库文件")
+            return True
+        except Exception as e:
+            self.logger.error(f"Checkpoint执行失败: {e}")
+            return False
