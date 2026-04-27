@@ -125,21 +125,18 @@ class Database:
 
         with self.write_lock:
             if self.conn and not self._closed:
-                # 先执行checkpoint合并WAL
+                # 直接关闭连接（不执行checkpoint，避免多线程问题）
                 try:
-                    self.conn.execute("PRAGMA force_checkpoint")
-                    self.logger.info("关闭前Checkpoint执行成功，WAL已合并")
+                    self.conn.close()
+                    self.logger.info(f"数据库连接已关闭: {self.db_path}")
                 except Exception as e:
-                    self.logger.warning(f"关闭前Checkpoint失败: {e}")
+                    self.logger.warning(f"关闭连接失败: {e}")
 
-                self.conn.close()
                 self._closed = True
 
                 # 清除单例实例
                 if self.abs_path in Database._instances:
                     del Database._instances[self.abs_path]
-
-                self.logger.info(f"数据库连接已关闭: {self.db_path}")
 
     def __enter__(self):
         """进入上下文"""
@@ -199,8 +196,8 @@ class Database:
         """
         执行checkpoint操作，将WAL合并到主数据库文件
 
-        原理：关闭连接后再打开，强制DuckDB合并WAL文件
-        这是唯一能确保WAL真正合并到主库的方法
+        注意：使用PRAGMA force_checkpoint直接合并WAL，无需关闭连接
+        避免多线程环境下出现"Connection already closed"错误
 
         Returns:
             True: 合并成功
@@ -208,23 +205,12 @@ class Database:
         """
         try:
             with self.write_lock:
-                # 执行checkpoint命令
+                # 执行checkpoint命令（强制合并WAL）
                 self.conn.execute("PRAGMA force_checkpoint")
-
-                # 关闭连接以触发WAL合并
-                self.conn.close()
-
-                # 重新打开连接
-                self.conn = duckdb.connect(self.db_path)
 
                 self.logger.info("Checkpoint执行成功，WAL已合并到数据库文件")
                 return True
 
         except Exception as e:
             self.logger.error(f"Checkpoint执行失败: {e}")
-            # 尝试恢复连接
-            try:
-                self.conn = duckdb.connect(self.db_path)
-            except Exception as ex:
-                self.logger.error(f"连接恢复失败: {ex}")
             return False
