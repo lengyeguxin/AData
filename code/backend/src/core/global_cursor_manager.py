@@ -106,7 +106,7 @@ class GlobalCursorManager:
                 # 使用Database类统一管理连接
                 db = Database(self.db_path)
                 db.execute(create_sql)
-                db.close()
+                # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
             else:
                 # 从schema文件读取并执行
                 with open(schema_file, 'r', encoding='utf-8') as f:
@@ -114,7 +114,7 @@ class GlobalCursorManager:
                 # 使用Database类统一管理连接
                 db = Database(self.db_path)
                 db.execute(schema_sql)
-                db.close()
+                # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
             self.logger.info(f"游标表初始化成功: {self.db_path}")
             return True
@@ -171,7 +171,7 @@ class GlobalCursorManager:
         # 使用Database类统一管理连接
         db = Database(self.db_path)
         result = db.execute(query, (table_name,))
-        db.close()
+        # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
         if not result:
             return None
@@ -391,7 +391,7 @@ class GlobalCursorManager:
                 if not result:
                     self.logger.error(f"No cursor found for {table_name}")
                     db.execute("ROLLBACK")
-                    db.close()
+                    # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
                     return
 
                 cursor_strategy = result[0][0]
@@ -418,8 +418,7 @@ class GlobalCursorManager:
                 self.logger.error(f"Failed to update cursor for {table_name}: {e}")
                 raise
 
-            finally:
-                db.close()
+            # 单例模式下不关闭连接，由程序退出时统一关闭
 
     def mark_running(self, table_name: str):
         """标记为正在拉取（线程安全，DuckDB兼容：DELETE + INSERT）"""
@@ -456,7 +455,7 @@ class GlobalCursorManager:
                 if not result:
                     self.logger.error(f"No cursor found for {table_name}")
                     db.execute("ROLLBACK")
-                    db.close()
+                    # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
                     return
 
                 row = result[0]
@@ -487,8 +486,7 @@ class GlobalCursorManager:
                 self.logger.error(f"Failed to mark {table_name} as running: {e}")
                 raise
 
-            finally:
-                db.close()
+            # 单例模式下不关闭连接，由程序退出时统一关闭
 
     def mark_failed(self, table_name: str, error_message: str = ""):
         """标记为失败（线程安全，DuckDB兼容：DELETE + INSERT）"""
@@ -525,7 +523,7 @@ class GlobalCursorManager:
                 if not result:
                     self.logger.error(f"No cursor found for {table_name}")
                     db.execute("ROLLBACK")
-                    db.close()
+                    # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
                     return
 
                 row = result[0]
@@ -556,8 +554,7 @@ class GlobalCursorManager:
                 self.logger.error(f"Failed to mark {table_name} as failed: {e}")
                 raise
 
-            finally:
-                db.close()
+            # 单例模式下不关闭连接，由程序退出时统一关闭
 
     def should_update_cursor(self, table_name: str, has_data: bool) -> bool:
         """
@@ -602,7 +599,7 @@ class GlobalCursorManager:
         # 使用Database类统一管理连接
         db = Database(self.db_path)
         results = db.execute(query)
-        db.close()
+        # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
         cursors = []
         for row in results:
@@ -752,7 +749,7 @@ class GlobalCursorManager:
         # 使用Database类统一管理连接
         db = Database(self.db_path)
         db.execute(query, (self.STATUS_PENDING, table_name))
-        db.close()
+        # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
     def reset_all_cursors(self):
         """重置所有表的游标"""
@@ -767,4 +764,4 @@ class GlobalCursorManager:
         # 使用Database类统一管理连接
         db = Database(self.db_path)
         db.execute(query, (self.STATUS_PENDING,))
-        db.close()
+        # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
