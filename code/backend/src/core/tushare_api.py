@@ -234,10 +234,6 @@ class TushareAPI:
 
         return result
 
-        except requests.RequestException as e:
-            self.logger.error(f"API请求失败: {api_name} - {e}")
-            raise Exception(f"API请求失败: {e}")
-
     def is_vip_interface(self, api_name: str) -> bool:
         """
         判断是否VIP接口
