@@ -1,13 +1,14 @@
 """
-DuckDB数据库封装类
+PostgreSQL数据库封装类
 
 提供统一的数据库操作接口
-- 单例模式：全局共享一个连接，确保checkpoint能合并WAL
-- 线程安全：写操作加锁，保证DuckDB单写模型
-- 并发读：读操作无锁，支持多线程并发读取
+- 单例模式：全局共享一个连接池
+- 线程安全：使用连接池保证并发安全
+- 连接池：支持多线程并发读写
 """
 
-import duckdb
+import psycopg2
+import psycopg2.pool
 import threading
 from typing import List, Tuple, Optional
 from pathlib import Path
@@ -15,60 +16,74 @@ from src.core.logger import get_logger
 
 
 class Database:
-    """DuckDB数据库封装类（单例模式，线程安全）"""
+    """PostgreSQL数据库封装类（单例模式，线程安全）"""
 
     # 单例实例和锁
     _instances = {}
     _lock = threading.Lock()
 
-    def __new__(cls, db_path: str):
+    def __new__(cls, db_config: dict):
         """
-        单例模式：同一个db_path返回同一个实例
+        单例模式：同一个db_config返回同一个实例
 
         Args:
-            db_path: 数据库文件路径
+            db_config: 数据库连接配置字典
+                {
+                    'host': 'localhost',
+                    'port': 5432,
+                    'database': 'adatadb',
+                    'user': 'adata',
+                    'password': 'adata258963'
+                }
         """
-        # 使用绝对路径作为key
-        abs_path = str(Path(db_path).resolve())
+        # 使用数据库连接字符串作为key
+        conn_key = f"{db_config['host']}:{db_config['port']}/{db_config['database']}"
 
         with cls._lock:
-            if abs_path not in cls._instances:
+            if conn_key not in cls._instances:
                 instance = super().__new__(cls)
-                cls._instances[abs_path] = instance
-            return cls._instances[abs_path]
+                cls._instances[conn_key] = instance
+            return cls._instances[conn_key]
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_config: dict):
         """
-        初始化数据库连接（单例，只初始化一次）
+        初始化数据库连接池（单例，只初始化一次）
 
         Args:
-            db_path: 数据库文件路径
+            db_config: 数据库连接配置字典
         """
         # 避免重复初始化
-        abs_path = str(Path(db_path).resolve())
+        conn_key = f"{db_config['host']}:{db_config['port']}/{db_config['database']}"
         if hasattr(self, '_initialized') and self._initialized:
             return
 
-        self.db_path = db_path
-        self.abs_path = abs_path
+        self.db_config = db_config
+        self.conn_key = conn_key
         self.logger = get_logger(__name__)
 
-        # 确保数据库目录存在
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # 创建连接池（ThreadedConnectionPool支持多线程并发）
+        try:
+            self.pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=10,
+                host=db_config['host'],
+                port=db_config['port'],
+                database=db_config['database'],
+                user=db_config['user'],
+                password=db_config['password']
+            )
 
-        # 连接数据库
-        self.conn = duckdb.connect(db_path)
+            self._initialized = True
+            self._closed = False
+            self.logger.info(f"PostgreSQL连接池初始化成功: {conn_key}")
 
-        # 线程安全：写操作锁（保护DuckDB单写模型）
-        self.write_lock = threading.Lock()
-
-        self._initialized = True
-        self._closed = False
-        self.logger.info(f"数据库连接初始化: {db_path}")
+        except Exception as e:
+            self.logger.error(f"PostgreSQL连接池初始化失败: {e}")
+            raise
 
     def execute(self, query: str, params: Optional[Tuple] = None) -> List[Tuple]:
         """
-        执行SQL查询（线程安全）
+        执行SQL查询（线程安全，使用连接池）
 
         Args:
             query: SQL语句
@@ -78,65 +93,87 @@ class Database:
             查询结果列表
 
         注意：
-            - 所有SQL操作都加锁，保证DuckDB单写模型
-            - 读操作也串行化，确保线程安全（后续可优化）
+            - 从连接池获取连接，执行后归还
+            - PostgreSQL使用%s占位符（DuckDB也支持）
         """
-        with self.write_lock:
-            try:
-                if params:
-                    result = self.conn.execute(query, params).fetchall()
-                else:
-                    result = self.conn.execute(query).fetchall()
+        conn = None
+        try:
+            # 从连接池获取连接
+            conn = self.pool.getconn()
 
+            with conn.cursor() as cursor:
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                result = cursor.fetchall()
                 return result
 
-            except Exception as e:
-                self.logger.error(f"SQL执行失败: {query} - {e}")
-                raise
+        except Exception as e:
+            self.logger.error(f"SQL执行失败: {query} - {e}")
+            if conn:
+                conn.rollback()
+            raise
+        finally:
+            # 归还连接到连接池
+            if conn:
+                self.pool.putconn(conn)
 
     def execute_many(self, query: str, params_list: List[Tuple]):
         """
-        执行批量SQL（线程安全）
+        执行批量SQL（线程安全，使用连接池）
 
         Args:
             query: SQL语句
             params_list: 参数列表
 
         注意：
-            - 批量操作加锁，保证写序列化
+            - 批量操作使用单个连接事务
+            - 失败时自动回滚
         """
-        with self.write_lock:
-            try:
-                for params in params_list:
-                    self.conn.execute(query, params)
+        conn = None
+        try:
+            conn = self.pool.getconn()
 
-            except Exception as e:
-                self.logger.error(f"批量SQL执行失败: {query} - {e}")
-                raise
+            with conn.cursor() as cursor:
+                for params in params_list:
+                    cursor.execute(query, params)
+
+                # 提交事务
+                conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"批量SQL执行失败: {query} - {e}")
+            if conn:
+                conn.rollback()
+            raise
+        finally:
+            if conn:
+                self.pool.putconn(conn)
 
     def close(self):
         """
-        关闭数据库连接并清除单例实例
+        关闭连接池并清除单例实例
 
-        注意：关闭后会清除单例，下次使用会重新创建连接
+        注意：关闭后会清除单例，下次使用会重新创建连接池
         """
         if self._closed:
             return
 
-        with self.write_lock:
-            if self.conn and not self._closed:
-                # 直接关闭连接（不执行checkpoint，避免多线程问题）
-                try:
-                    self.conn.close()
-                    self.logger.info(f"数据库连接已关闭: {self.db_path}")
-                except Exception as e:
-                    self.logger.warning(f"关闭连接失败: {e}")
+        try:
+            # 关闭所有连接池中的连接
+            self.pool.closeall()
+            self.logger.info(f"PostgreSQL连接池已关闭: {self.conn_key}")
 
-                self._closed = True
+        except Exception as e:
+            self.logger.warning(f"关闭连接池失败: {e}")
 
-                # 清除单例实例
-                if self.abs_path in Database._instances:
-                    del Database._instances[self.abs_path]
+        self._closed = True
+
+        # 清除单例实例
+        if self.conn_key in Database._instances:
+            del Database._instances[self.conn_key]
 
     def __enter__(self):
         """进入上下文"""
@@ -148,7 +185,7 @@ class Database:
 
     def table_exists(self, table_name: str) -> bool:
         """
-        检查表是否存在
+        检查表是否存在（PostgreSQL语法）
 
         Args:
             table_name: 表名
@@ -159,7 +196,7 @@ class Database:
         query = """
             SELECT COUNT(*)
             FROM information_schema.tables
-            WHERE table_name = ?
+            WHERE table_schema = 'public' AND table_name = ?
         """
 
         result = self.execute(query, (table_name,))
@@ -181,36 +218,19 @@ class Database:
 
     def get_table_schema(self, table_name: str) -> List[Tuple]:
         """
-        获取表结构
+        获取表结构（PostgreSQL语法）
 
         Args:
             table_name: 表名
 
         Returns:
-            表结构信息列表
+            表结构信息列表（列名、类型等）
         """
-        query = f"DESCRIBE {table_name}"
-        return self.execute(query)
-
-    def checkpoint(self):
+        query = """
+            SELECT column_name, data_type, character_maximum_length,
+                   is_nullable, column_default
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = ?
+            ORDER BY ordinal_position
         """
-        执行checkpoint操作，将WAL合并到主数据库文件
-
-        注意：使用PRAGMA force_checkpoint直接合并WAL，无需关闭连接
-        避免多线程环境下出现"Connection already closed"错误
-
-        Returns:
-            True: 合并成功
-            False: 合并失败
-        """
-        try:
-            with self.write_lock:
-                # 执行checkpoint命令（强制合并WAL）
-                self.conn.execute("PRAGMA force_checkpoint")
-
-                self.logger.info("Checkpoint执行成功，WAL已合并到数据库文件")
-                return True
-
-        except Exception as e:
-            self.logger.error(f"Checkpoint执行失败: {e}")
-            return False
+        return self.execute(query, (table_name,))

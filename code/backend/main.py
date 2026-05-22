@@ -55,36 +55,19 @@ def load_config(config_path: str) -> dict:
     return config
 
 
-def initialize_database(db_path: str) -> Database:
+def initialize_database(db_config: dict) -> Database:
     """
-    连接数据库并验证Schema完整性
+    连接PostgreSQL数据库并验证Schema完整性
 
     注意：此函数不会创建表结构。如需初始化数据库，请先运行：
         python code/backend/init_db.py
     """
-    logger.info(f"连接数据库: {db_path}")
+    logger.info(f"连接PostgreSQL数据库: {db_config['host']}:{db_config['port']}/{db_config['database']}")
 
-    db_file = Path(db_path)
-
-    # 检查数据库文件是否存在
-    if not db_file.exists():
-        logger.error("=" * 80)
-        logger.error("❌ 数据库文件不存在")
-        logger.error("=" * 80)
-        logger.error(f"数据库路径: {db_path}")
-        logger.error("")
-        logger.error("首次部署请先运行初始化脚本：")
-        logger.error("  python code/backend/init_db.py")
-        logger.error("")
-        logger.error("然后重新启动：")
-        logger.error("  python code/backend/main.py")
-        logger.error("=" * 80)
-        raise FileNotFoundError(f"数据库文件不存在，请先运行 init_db.py 初始化: {db_path}")
-
-    db = Database(db_path)
+    db = Database(db_config)
 
     # 检查数据库是否有完整的表结构（28张表）
-    result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
+    result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
     existing_tables = [row[0] for row in result]
 
     # 期望的28张表（global_cursor + 27张数据表）
@@ -94,15 +77,15 @@ def initialize_database(db_path: str) -> Database:
         logger.error("=" * 80)
         logger.error("❌ 数据库Schema不完整")
         logger.error("=" * 80)
-        logger.error(f"数据库路径: {db_path}")
+        logger.error(f"数据库: {db_config['database']}")
         logger.error(f"现有表数: {len(existing_tables)}, 期望: {expected_table_count}")
         logger.error("")
-        logger.error("请重新运行初始化脚本重建数据库：")
-        logger.error("  python code/backend/init_db.py --force")
+        logger.error("请运行初始化脚本：")
+        logger.error("  python code/backend/init_db.py")
         logger.error("=" * 80)
-        raise RuntimeError(f"数据库Schema不完整（{len(existing_tables)}表），请运行 init_db.py --force 重建")
+        raise RuntimeError(f"数据库Schema不完整（{len(existing_tables)}表），请运行 init_db.py")
 
-    logger.info(f"✓ 数据库连接成功（{len(existing_tables)}张表）")
+    logger.info(f"✓ PostgreSQL连接成功（{len(existing_tables)}张表）")
 
     return db
 
@@ -160,12 +143,22 @@ def main():
         sys.exit(1)
 
     # 2. 初始化数据库和游标
-    db_path_config = config.get('database', {}).get('path', 'database/adata.db')
-    db_path = str(project_root / db_path_config)
-    db = initialize_database(db_path)
+    db_config = config.get('database', {})
+    if db_config.get('type') == 'postgresql':
+        # PostgreSQL配置
+        db = initialize_database(db_config)
+        # 游标管理器也需要db_config
+        cursor_manager = GlobalCursorManager(db_config, str(Path(args.config).parent))
+    else:
+        # DuckDB配置（向后兼容）
+        db_path_config = config.get('database', {}).get('path', 'database/adata.db')
+        db_path = str(project_root / db_path_config)
+        logger.warning(f"使用DuckDB（向后兼容模式），建议切换到PostgreSQL")
+        # DuckDB需要转换配置格式
+        db_config_compat = {'path': db_path}
+        db = Database(db_config_compat)
+        cursor_manager = GlobalCursorManager(db_path, str(Path(args.config).parent))
 
-    # 初始化游标表
-    cursor_manager = GlobalCursorManager(db_path, str(Path(args.config).parent))
     cursor_manager.initialize()
     logger.info("游标表初始化完成")
 

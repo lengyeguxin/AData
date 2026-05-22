@@ -35,15 +35,15 @@ class GlobalCursorManager:
     STATUS_SUCCESS = 'success'
     STATUS_FAILED = 'failed'
 
-    def __init__(self, db_path: str, config_path: str = 'code/backend/config'):
+    def __init__(self, db_config, config_path: str = 'code/backend/config'):
         """
         初始化全局游标管理器
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典（PostgreSQL或DuckDB）
             config_path: 配置文件路径
         """
-        self.db_path = db_path
+        self.db_config = db_config
         self.config_path = Path(config_path)
 
         # 初始化logger
@@ -104,7 +104,7 @@ class GlobalCursorManager:
                     CREATE INDEX IF NOT EXISTS idx_cursor_strategy ON global_cursor(cursor_strategy);
                 """
                 # 使用Database类统一管理连接
-                db = Database(self.db_path)
+                db = Database(self.db_config)
                 db.execute(create_sql)
                 # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
             else:
@@ -112,7 +112,7 @@ class GlobalCursorManager:
                 with open(schema_file, 'r', encoding='utf-8') as f:
                     schema_sql = f.read()
                 # 使用Database类统一管理连接
-                db = Database(self.db_path)
+                db = Database(self.db_config)
                 db.execute(schema_sql)
                 # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
@@ -169,7 +169,7 @@ class GlobalCursorManager:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         result = db.execute(query, (table_name,))
         # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
@@ -380,7 +380,7 @@ class GlobalCursorManager:
             """
 
             # 使用Database类统一管理连接，使用事务包裹DELETE+INSERT
-            db = Database(self.db_path)
+            db = Database(self.db_config)
 
             try:
                 # 开启事务（原子性，避免索引损坏）
@@ -444,7 +444,7 @@ class GlobalCursorManager:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             """
 
-            db = Database(self.db_path)
+            db = Database(self.db_config)
 
             try:
                 # 开启事务（原子性，避免索引损坏）
@@ -512,7 +512,7 @@ class GlobalCursorManager:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             """
 
-            db = Database(self.db_path)
+            db = Database(self.db_config)
 
             try:
                 # 开启事务（原子性，避免索引损坏）
@@ -597,7 +597,7 @@ class GlobalCursorManager:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         results = db.execute(query)
         # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
@@ -747,7 +747,7 @@ class GlobalCursorManager:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         db.execute(query, (self.STATUS_PENDING, table_name))
         # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
@@ -762,6 +762,6 @@ class GlobalCursorManager:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         db.execute(query, (self.STATUS_PENDING,))
         # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭

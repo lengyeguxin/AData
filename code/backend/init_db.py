@@ -44,35 +44,28 @@ def load_config(config_path: str) -> dict:
     return config
 
 
-def initialize_database(db_path: str, force: bool = False) -> Database:
+def initialize_database(db_config: dict, force: bool = False) -> Database:
     """
     初始化数据库
 
     Args:
-        db_path: 数据库文件路径
-        force: 是否强制重建（删除已有数据库）
+        db_config: 数据库配置字典
+        force: 是否强制重建（删除已有表）
 
     Returns:
         Database实例
     """
     logger.info("=" * 80)
-    logger.info("开始初始化数据库")
+    logger.info("开始初始化PostgreSQL数据库")
     logger.info("=" * 80)
 
-    db_file = Path(db_path)
-
-    # 如果强制重建，删除已有数据库
-    if force and db_file.exists():
-        logger.warning(f"强制重建模式：删除已有数据库文件 {db_file}")
-        db_file.unlink()
-        logger.info("数据库文件已删除")
+    logger.info(f"数据库: {db_config['host']}:{db_config['port']}/{db_config['database']}")
 
     # 创建数据库实例
-    logger.info(f"数据库路径: {db_path}")
-    db = Database(db_path)
+    db = Database(db_config)
 
-    # 查询现有表
-    result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
+    # 查询现有表（PostgreSQL使用public schema）
+    result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
     existing_tables = [row[0] for row in result]
 
     # 期望的28张表（global_cursor + 27张数据表）
@@ -82,6 +75,13 @@ def initialize_database(db_path: str, force: bool = False) -> Database:
         logger.info(f"数据库已有完整Schema（{len(existing_tables)}张表）")
         logger.info("如需重建，请使用 --force 参数")
         return db
+
+    # 强制重建模式：删除所有表
+    if force and len(existing_tables) > 0:
+        logger.warning(f"强制重建模式：删除{len(existing_tables)}张已有表")
+        for table_name in existing_tables:
+            db.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+        logger.info("所有表已删除")
 
     # 执行Schema文件
     logger.info(f"当前表数: {len(existing_tables)}, 期望: {expected_table_count}")
@@ -99,15 +99,15 @@ def initialize_database(db_path: str, force: bool = False) -> Database:
         try:
             db.execute(schema_sql)
         except Exception as e:
-            # 如果表已存在，跳过（DuckDB CREATE TABLE IF NOT EXISTS）
-            if "Table with name" in str(e) and "already exists" in str(e):
+            # PostgreSQL: 如果表已存在，跳过
+            if "already exists" in str(e).lower():
                 logger.info(f"  表已存在，跳过: {schema_file.name}")
             else:
                 logger.error(f"  Schema执行失败: {e}")
                 raise
 
     # 验证表数量
-    result2 = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
+    result2 = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
     final_tables = [row[0] for row in result2]
 
     logger.info("=" * 80)
@@ -118,15 +118,15 @@ def initialize_database(db_path: str, force: bool = False) -> Database:
     return db
 
 
-def initialize_cursors(db_path: str, config_dir: str):
+def initialize_cursors(db_config: dict, config_dir: str):
     """初始化游标表"""
     logger.info("初始化游标表...")
 
-    cursor_manager = GlobalCursorManager(db_path, config_dir)
+    cursor_manager = GlobalCursorManager(db_config, config_dir)
     cursor_manager.initialize()
 
     # 查询游标表数据
-    db = Database(db_path)
+    db = Database(db_config)
     cursor_count = db.execute("SELECT COUNT(*) FROM global_cursor")[0][0]
 
     logger.info(f"✓ 游标表初始化完成（{cursor_count}条记录）")
@@ -158,11 +158,14 @@ def main():
         sys.exit(1)
 
     # 2. 初始化数据库
-    db_path_config = config.get('database', {}).get('path', 'database/adata.db')
-    db_path = str(project_root / db_path_config)
+    db_config = config.get('database', {})
+
+    if not db_config:
+        logger.error("配置文件缺少database配置")
+        sys.exit(1)
 
     try:
-        db = initialize_database(db_path, args.force)
+        db = initialize_database(db_config, args.force)
     except Exception as e:
         logger.error(f"数据库初始化失败: {e}")
         sys.exit(1)
@@ -170,14 +173,14 @@ def main():
     # 3. 初始化游标
     try:
         config_dir = str(Path(args.config).parent)
-        initialize_cursors(db_path, config_dir)
+        initialize_cursors(db_config, config_dir)
     except Exception as e:
         logger.error(f"游标初始化失败: {e}")
         sys.exit(1)
 
     logger.info("=" * 80)
     logger.info("✓ 数据库初始化完成")
-    logger.info(f"  数据库路径: {db_path}")
+    logger.info(f"  数据库: {db_config['host']}:{db_config['port']}/{db_config['database']}")
     logger.info("=" * 80)
     logger.info("现在可以启动main.py了：")
     logger.info("  python code/backend/main.py")
