@@ -90,11 +90,12 @@ class Database:
             params: 参数（可选）
 
         Returns:
-            查询结果列表
+            查询结果列表（对于CREATE/DROP等语句返回空列表）
 
         注意：
             - 从连接池获取连接，执行后归还
-            - PostgreSQL使用%s占位符（DuckDB也支持）
+            - PostgreSQL使用%s占位符
+            - 自动提交事务（CREATE/DROP/INSERT立即生效）
         """
         conn = None
         try:
@@ -107,7 +108,16 @@ class Database:
                 else:
                     cursor.execute(query)
 
+                # 对于CREATE/DROP/INSERT等无结果语句，返回空列表
+                # PostgreSQL的description属性为None表示无结果
+                if cursor.description is None:
+                    # 自动提交事务
+                    conn.commit()
+                    return []
+
                 result = cursor.fetchall()
+                # 查询语句也自动提交
+                conn.commit()
                 return result
 
         except Exception as e:
