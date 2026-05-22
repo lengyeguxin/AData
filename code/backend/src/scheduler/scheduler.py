@@ -5,8 +5,6 @@
 - 间隔检查模式：每隔check_interval分钟检查是否需要拉取数据
 - 如果任务正在运行 → 跳过（max_instances=1）
 - 如果任务未运行 → 启动拉取
-- 30分钟定时快照生成
-- 1小时定时WAL checkpoint
 - 异常处理和重试机制
 
 优势：
@@ -28,7 +26,6 @@ from src.core.logger import get_logger
 from src.core.database import Database
 from src.core.data_fetcher import DataFetcher
 import yaml
-import shutil
 
 
 class DataScheduler:
@@ -45,21 +42,19 @@ class DataScheduler:
         self.logger = get_logger(__name__)
 
         # 初始化组件
-        db_path = 'database/adata.db'
-        self.db = Database(db_path)
-        self.fetcher = DataFetcher(db_path, config)
+        db_config = config.get('database', {})
+        self.db = Database(db_config)
+        self.fetcher = DataFetcher(db_config, config)
 
         # 创建后台调度器
         self.scheduler = BackgroundScheduler()
 
         # 从配置读取时间参数
         scheduler_config = config.get('scheduler', {})
-        self.snapshot_interval = config.get('snapshot', {}).get('interval', 30)
         self.check_interval = config.get('fetch', {}).get('check_interval', 60)
 
         self.logger.info(f"调度器初始化完成")
         self.logger.info(f"数据拉取检查间隔: {self.check_interval}分钟")
-        self.logger.info(f"快照间隔: {self.snapshot_interval}分钟")
 
     def start(self):
         """
@@ -72,13 +67,7 @@ class DataScheduler:
         # 1. 日线数据定时拉取任务（每天18:00）
         self.add_daily_fetch_job()
 
-        # 2. 快照定时生成任务（每30分钟）
-        self.add_snapshot_job()
-
-        # 3. WAL checkpoint任务（每1小时）
-        self.add_checkpoint_job()
-
-        # 4. 启动调度器
+        # 2. 启动调度器
         self.scheduler.start()
         self.logger.info("✓ 定时任务调度器已启动")
 
@@ -116,50 +105,6 @@ class DataScheduler:
 
         self.logger.info(f"✓ 已添加数据拉取任务: 每{check_interval}分钟检查一次")
 
-    def add_snapshot_job(self):
-        """
-        添加快照定时生成任务
-
-        时间：每30分钟（可配置）
-        任务：生成数据库快照（两个位置）
-        """
-        # 创建interval触发器
-        trigger = IntervalTrigger(minutes=self.snapshot_interval)
-
-        # 添加任务
-        self.scheduler.add_job(
-            self.create_snapshot,
-            trigger,
-            id='snapshot',
-            name='数据库快照',
-            max_instances=1,
-            misfire_grace_time=600  # 允许10分钟内的延迟执行
-        )
-
-        self.logger.info(f"✓ 已添加快照生成任务: 每{self.snapshot_interval}分钟")
-
-    def add_checkpoint_job(self):
-        """
-        添加WAL checkpoint定时任务
-
-        时间：每1小时
-        任务：执行checkpoint，将WAL合并到主数据库文件
-        """
-        # 创建interval触发器（每1小时）
-        trigger = IntervalTrigger(hours=1)
-
-        # 添加任务
-        self.scheduler.add_job(
-            self.execute_checkpoint,
-            trigger,
-            id='checkpoint',
-            name='WAL Checkpoint',
-            max_instances=1,
-            misfire_grace_time=300  # 允许5分钟内的延迟执行
-        )
-
-        self.logger.info(f"✓ 已添加checkpoint任务: 每1小时")
-
     def fetch_daily_data(self):
         """
         拉取数据任务（检查running状态）
@@ -196,62 +141,6 @@ class DataScheduler:
             # 发送通知（待实现）
 
         self.logger.info("=" * 80)
-
-    def create_snapshot(self):
-        """
-        创建数据库快照任务
-
-        任务内容：
-        - 复制主数据库到两个快照位置
-        - 异常处理和日志记录
-        """
-        self.logger.info("开始生成数据库快照...")
-
-        try:
-            # 主数据库路径
-            main_db = 'database/adata.db'
-
-            # 快照位置
-            snapshot_locations = self.config.get('snapshot', {}).get('locations', [
-                'database/adata_snapshot.db',
-                '/home/my/claude-project/AiStock/database/adata_snapshot.db'
-            ])
-
-            # 复制快照到每个位置
-            for snapshot_path in snapshot_locations:
-                shutil.copy2(main_db, snapshot_path)
-                self.logger.info(f"✓ 快照已保存: {snapshot_path}")
-
-            self.logger.info(f"✓ 数据库快照生成完成（{len(snapshot_locations)}个位置）")
-
-        except Exception as e:
-            self.logger.error(f"✗ 快照生成失败: {e}")
-            # 发送通知（待实现）
-
-    def execute_checkpoint(self):
-        """
-        执行WAL checkpoint任务
-
-        任务内容：
-        - 执行PRAGMA force_checkpoint
-        - 将WAL合并到主数据库文件
-        - 减少WAL文件大小
-        """
-        self.logger.info("开始执行checkpoint...")
-
-        try:
-            # 使用Database类的checkpoint方法
-            db = Database('database/adata.db')
-            success = db.checkpoint()
-            db.close()
-
-            if success:
-                self.logger.info("✓ Checkpoint执行成功，WAL已合并到数据库文件")
-            else:
-                self.logger.warning("⚠️ Checkpoint执行失败")
-
-        except Exception as e:
-            self.logger.error(f"✗ Checkpoint执行失败: {e}")
 
     def get_jobs_status(self) -> Dict:
         """

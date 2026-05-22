@@ -31,7 +31,7 @@ class BaseCollector:
 
     def __init__(
         self,
-        db_path: str,
+        db_config: dict,
         api: TushareAPI,
         table_name: str,
         api_name: str,
@@ -42,14 +42,14 @@ class BaseCollector:
         初始化Collector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
             table_name: 表名
             api_name: Tushare API名称（严格按CSV文档）
             date_field: 日期字段名（默认'trade_date'）
             vip_interface: 是否VIP接口（财务表使用VIP接口）
         """
-        self.db_path = db_path
+        self.db_config = db_config
         self.api = api
         self.table_name = table_name
         self.api_name = api_name
@@ -131,7 +131,7 @@ class BaseCollector:
         records = self.transform(data)
 
         # 使用Database类统一管理连接（避免配置冲突）
-        db = Database(self.db_path)
+        db = Database(self.db_config)
 
         try:
             # 批量插入
@@ -173,23 +173,23 @@ class BaseCollector:
         params = []
 
         if 'ts_code' in kwargs:
-            conditions.append("ts_code = ?")
+            conditions.append("ts_code = %s")
             params.append(kwargs['ts_code'])
 
         if 'trade_date' in kwargs:
             # 转换日期格式
             date_formatted = convert_date_format(kwargs['trade_date'])
-            conditions.append("trade_date = ?")
+            conditions.append("trade_date = %s")
             params.append(date_formatted)
 
         if 'ann_date' in kwargs:
             date_formatted = convert_date_format(kwargs['ann_date'])
-            conditions.append("ann_date = ?")
+            conditions.append("ann_date = %s")
             params.append(date_formatted)
 
         if 'cal_date' in kwargs:
             date_formatted = convert_date_format(kwargs['cal_date'])
-            conditions.append("cal_date = ?")
+            conditions.append("cal_date = %s")
             params.append(date_formatted)
 
         if not conditions:
@@ -203,7 +203,7 @@ class BaseCollector:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         result = db.execute(query, tuple(params))
 
         return result[0][0] > 0
@@ -239,7 +239,7 @@ class BaseCollector:
         query = f"SELECT COUNT(*) FROM {self.table_name}"
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         result = db.execute(query)
 
         return result[0][0]
@@ -257,7 +257,7 @@ class BaseCollector:
         """
 
         # 使用Database类统一管理连接
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         result = db.execute(query)
 
         if result and result[0] and result[0][0]:

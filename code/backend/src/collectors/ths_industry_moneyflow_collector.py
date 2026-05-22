@@ -3,7 +3,7 @@
 
 表：ths_industry_moneyflow
 API：moneyflow_ind_ths
-- 文档地址：https://tushare.pro/document/2?doc_id=343
+- 文档地址：https://tushare.pro/document/2%sdoc_id=343
 游标策略：daily_trade（按交易日）
 """
 import sys
@@ -19,9 +19,9 @@ from src.core.transformers import convert_date_format
 class THSIndustryMoneyflowCollector(BaseCollector):
     """同花顺行业资金流向Collector"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='ths_industry_moneyflow',
             api_name='moneyflow_ind_ths',
@@ -78,7 +78,7 @@ class THSIndustryMoneyflowCollector(BaseCollector):
         """
         fields = "trade_date, ts_code, industry, lead_stock, close, pct_change, company_num, pct_change_stock, close_price, net_buy_amount, net_sell_amount, net_amount, updated_at"
 
-        placeholders = ', '.join(['?'] * 12) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 12) + ', NOW()'
 
         update_fields = "industry = excluded.industry, lead_stock = excluded.lead_stock, close = excluded.close, pct_change = excluded.pct_change, company_num = excluded.company_num, pct_change_stock = excluded.pct_change_stock, close_price = excluded.close_price, net_buy_amount = excluded.net_buy_amount, net_sell_amount = excluded.net_sell_amount, net_amount = excluded.net_amount, updated_at = NOW()"
 

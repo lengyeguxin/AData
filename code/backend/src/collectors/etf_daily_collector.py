@@ -4,7 +4,7 @@ ETFDailyCollector - ETF日线行情拉取器
 严格按照CSV文档：
 - 接口名称：fund_daily
 - 接口参数：trade_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=127
+- 文档地址：https://tushare.pro/document/2%sdoc_id=127
 - 游标策略：daily_trade（按交易日记录）
 """
 
@@ -21,16 +21,16 @@ from src.core.transformers import convert_date_format
 class ETFDailyCollector(BaseCollector):
     """ETF日线行情拉取器（P1行情表，按交易日每日拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化ETFDailyCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='etf_daily',
             api_name='fund_daily',  # 严格按照CSV文档
@@ -93,7 +93,7 @@ class ETFDailyCollector(BaseCollector):
         """
         fields = "ts_code, trade_date, open, high, low, close, pre_close, change, pct_chg, vol, amount, updated_at"
 
-        placeholders = ', '.join(['?'] * 11) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 11) + ', NOW()'
 
         update_fields = "open = excluded.open, high = excluded.high, low = excluded.low, close = excluded.close, pre_close = excluded.pre_close, change = excluded.change, pct_chg = excluded.pct_chg, vol = excluded.vol, amount = excluded.amount, updated_at = NOW()"
 

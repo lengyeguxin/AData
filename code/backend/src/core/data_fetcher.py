@@ -69,20 +69,20 @@ class DataFetcher:
         ]
     }
 
-    def __init__(self, db_path: str, config: Dict):
+    def __init__(self, db_config: dict, config: Dict):
         """
         初始化数据拉取控制器
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             config: 配置字典
         """
-        self.db_path = db_path
+        self.db_config = db_config
         self.config = config
         self.logger = get_logger(__name__)
 
         # 初始化游标管理器
-        self.cursor_manager = GlobalCursorManager(db_path, 'code/backend/config')
+        self.cursor_manager = GlobalCursorManager(db_config, 'code/backend/config')
 
         # 数据拉取开关
         self.fetch_enabled = config.get('fetch', {}).get('enabled', True)
@@ -131,7 +131,7 @@ class DataFetcher:
             self.logger.info("数据拉取控制器启动")
             self.logger.info("=" * 80)
             self.logger.info(f"启动时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            self.logger.info(f"数据库路径: {self.db_path}")
+            self.logger.info(f"数据库: {self.db_config['host']}:{self.db_config['port']}/{self.db_config['database']}")
             self.logger.info(f"交易日历已加载: {len(self.trade_calendar)}个交易日")
             self.logger.info("")
 
@@ -146,15 +146,6 @@ class DataFetcher:
             raise
 
         finally:
-            # 执行WAL合并（将.wal文件合并到主数据库）
-            try:
-                from src.core.database import Database
-                db = Database(self.db_path)
-                db.checkpoint()
-                self.logger.info("✓ 数据库WAL合并完成")
-            except Exception as e:
-                self.logger.warning(f"WAL合并失败（不影响数据完整性）: {e}")
-
             # 确保无论如何都设置running=False（拉取完成）
             DataFetcher.running = False
             self.logger.info("✓ 数据拉取任务完成（running=False）")
@@ -169,14 +160,14 @@ class DataFetcher:
         query = """
             SELECT cal_date
             FROM trade_calendar
-            WHERE is_open = 1
+            WHERE is_open = '1'
             ORDER BY cal_date
         """
 
         try:
             # 使用Database类统一管理连接
             from src.core.database import Database
-            db = Database(self.db_path)
+            db = Database(self.db_config)
             results = db.execute(query)
 
             # 转换为YYYYMMDD格式（去掉横线）
@@ -752,13 +743,13 @@ class DataFetcher:
             # 获取类
             collector_class = getattr(module, class_name)
 
-            # 创建实例（需要db_path和api）
+            # 创建实例（需要db_config和api）
             # 从config获取tushare配置，创建API实例
             from src.core.tushare_api import TushareAPI
             api = TushareAPI(self.config['tushare'])
 
             # 创建Collector实例
-            collector = collector_class(self.db_path, api)
+            collector = collector_class(self.db_config, api)
 
             return collector
 
@@ -849,7 +840,7 @@ class DataFetcher:
 
         try:
             from src.core.database import Database
-            db = Database(self.db_path)
+            db = Database(self.db_config)
             result = db.execute(query, (date_formatted,))
 
             return result[0][0] > 0
@@ -926,8 +917,7 @@ class DataFetcher:
         date_formatted = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
 
         # 无数据记录文件路径（database目录下）
-        db_path = Path(self.db_path)
-        no_data_file = db_path.parent / 'no_data_dates.json'
+        no_data_file = Path('database/no_data_dates.json')
 
         # 加载现有记录
         try:

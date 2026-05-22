@@ -4,7 +4,7 @@ ExpressBriefCollector - 业绩快报拉取器（VIP接口）
 严格按照CSV文档：
 - 接口名称：express_vip（VIP接口）
 - 接口参数：ann_date={游标+1}、report_type=1
-- 文档地址：https://tushare.pro/document/2?doc_id=46
+- 文档地址：https://tushare.pro/document/2%sdoc_id=46
 - 游标策略：daily_natural（按自然日记录）
 """
 
@@ -21,9 +21,9 @@ from src.core.transformers import convert_date_format
 class ExpressBriefCollector(BaseCollector):
     """业绩快报拉取器（P2财务表，VIP接口）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         super().__init__(
-            db_path=db_path, api=api, table_name='express_brief',
+            db_config=db_config, api=api, table_name='express_brief',
             api_name='express_vip', date_field='ann_date', vip_interface=True
         )
 
@@ -99,7 +99,7 @@ class ExpressBriefCollector(BaseCollector):
         """
         fields = "ts_code, ann_date, end_date, revenue, operate_profit, total_profit, n_income, total_assets, total_hldr_eqy_exc_min_int, diluted_eps, diluted_roe, yoy_net_profit, bps, yoy_sales, yoy_op, yoy_tp, yoy_dedu_np, yoy_eps, yoy_roe, growth_assets, yoy_equity, growth_bps, or_last_year, op_last_year, tp_last_year, np_last_year, eps_last_year, open_net_assets, open_bps, perf_summary, is_audit, remark, updated_at"
 
-        placeholders = ', '.join(['?'] * 32) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 32) + ', NOW()'
 
         update_fields = "revenue = excluded.revenue, operate_profit = excluded.operate_profit, total_profit = excluded.total_profit, n_income = excluded.n_income, total_assets = excluded.total_assets, total_hldr_eqy_exc_min_int = excluded.total_hldr_eqy_exc_min_int, diluted_eps = excluded.diluted_eps, diluted_roe = excluded.diluted_roe, yoy_net_profit = excluded.yoy_net_profit, bps = excluded.bps, yoy_sales = excluded.yoy_sales, yoy_op = excluded.yoy_op, yoy_tp = excluded.yoy_tp, yoy_dedu_np = excluded.yoy_dedu_np, yoy_eps = excluded.yoy_eps, yoy_roe = excluded.yoy_roe, growth_assets = excluded.growth_assets, yoy_equity = excluded.yoy_equity, growth_bps = excluded.growth_bps, or_last_year = excluded.or_last_year, op_last_year = excluded.op_last_year, tp_last_year = excluded.tp_last_year, np_last_year = excluded.np_last_year, eps_last_year = excluded.eps_last_year, open_net_assets = excluded.open_net_assets, open_bps = excluded.open_bps, perf_summary = excluded.perf_summary, is_audit = excluded.is_audit, remark = excluded.remark, updated_at = NOW()"
 

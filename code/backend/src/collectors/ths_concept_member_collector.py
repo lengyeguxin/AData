@@ -4,7 +4,7 @@ THSConceptMemberCollector - 同花顺概念板块成分拉取器
 严格按照CSV文档：
 - 接口名称：ths_member
 - 接口参数：ts_code={同花顺指数代码}（遍历ths_index_basic）
-- 文档地址：https://tushare.pro/document/2?doc_id=261
+- 文档地址：https://tushare.pro/document/2%sdoc_id=261
 - 游标策略：special_ths_member（特殊游标，遍历指数列表）
 """
 
@@ -22,16 +22,16 @@ import duckdb
 class THSConceptMemberCollector(BaseCollector):
     """同花顺概念板块成分拉取器（P3概念板块表，特殊游标）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化THSConceptMemberCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='ths_concept_member',
             api_name='ths_member',  # 严格按照CSV文档
@@ -55,7 +55,7 @@ class THSConceptMemberCollector(BaseCollector):
 
         # 从数据库获取所有概念指数代码（type='N'）
         from src.core.database import Database
-        db = Database(self.db_path)
+        db = Database(self.db_config)
         index_codes = db.execute(
             "SELECT ts_code FROM ths_index_basic WHERE type='N' ORDER BY ts_code"
         )
@@ -122,7 +122,7 @@ class THSConceptMemberCollector(BaseCollector):
         """
         fields = "ts_code, con_code, con_name, weight, in_date, out_date, is_new, updated_at"
 
-        placeholders = ', '.join(['?'] * 7) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 7) + ', NOW()'
 
         update_fields = "con_name = excluded.con_name, weight = excluded.weight, in_date = excluded.in_date, out_date = excluded.out_date, is_new = excluded.is_new, updated_at = NOW()"
 

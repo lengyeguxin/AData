@@ -4,7 +4,7 @@ HotsUserCollector - 游资账户拉取器
 严格按照CSV文档：
 - 接口名称：hm_list
 - 接口参数：无参数
-- 文档地址：https://tushare.pro/document/2?doc_id=311
+- 文档地址：https://tushare.pro/document/2%sdoc_id=311
 - 游标策略：none（无游标，全量拉取）
 """
 
@@ -21,16 +21,16 @@ from src.core.transformers import convert_date_format
 class HotsUserCollector(BaseCollector):
     """游资账户拉取器（P4游资表，全量拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化HotsUserCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='hots_user',
             api_name='hm_list',  # 实际接口名（修正）
@@ -92,7 +92,7 @@ class HotsUserCollector(BaseCollector):
         return """
             INSERT INTO hots_user (
                 name, description, orgs, updated_at
-            ) VALUES (?, ?, ?, NOW())
+            ) VALUES (%s, %s, %s, NOW())
             ON CONFLICT (name)
             DO UPDATE SET
                 description = excluded.description,

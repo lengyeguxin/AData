@@ -17,7 +17,6 @@ from dashboard.logger import setup_dashboard_logger
 setup_dashboard_logger()
 
 from dashboard.metadata import DatabaseMetadata
-from dashboard.config import get_dashboard_config_manager
 from dashboard.components.overview import render_overview
 from dashboard.components.table_list import render_table_list
 from dashboard.components.table_detail import render_table_detail
@@ -85,38 +84,30 @@ selected_view = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 数据库信息")
 
-# 获取配置管理器（用于获取数据库路径）
-dashboard_config = get_dashboard_config_manager()
-db_path = dashboard_config.get_database_path()
-
 # 获取元数据查询器（提前获取，用于显示信息）
-metadata_temp = DatabaseMetadata(db_path)
-db_display_path = metadata_temp.db.db_path
-snapshot_status = "快照数据库（只读）"  # Dashboard永远使用快照数据库
+metadata_temp = DatabaseMetadata()
+db_display_info = f"{metadata_temp.db.db_config['host']}:{metadata_temp.db.db_config['port']}/{metadata_temp.db.db_config['database']}"
+db_mode = "PostgreSQL主数据库（只读）"
 
 st.sidebar.info(f"""
-**数据库**: {db_display_path}
+**数据库**: {db_display_info}
 
-**模式**: {snapshot_status}
+**模式**: {db_mode}
 
 **总表数**: 查看"整体概览"
 
-**更新时间**: 快照创建时
+**更新时间**: 实时查询
 """)
 
 # 缓存元数据查询器（整个会话期间只创建一次）
 @st.cache_resource
 def get_metadata():
-    """缓存元数据查询器（使用快照数据库）"""
-    # 从Dashboard配置管理器获取数据库路径
-    dashboard_config = get_dashboard_config_manager()
-    db_path = dashboard_config.get_database_path()
+    """缓存元数据查询器（连接PostgreSQL主数据库）"""
+    # 创建元数据查询器，连接PostgreSQL主数据库
+    metadata = DatabaseMetadata()
 
-    # 创建元数据查询器，强制使用快照数据库
-    metadata = DatabaseMetadata(db_path)
-
-    # 显示提示信息（DashboardDatabase已自动连接快照）
-    st.sidebar.success("✅ 使用快照数据库（只读模式，不阻塞后端）")
+    # 显示提示信息
+    st.sidebar.success("✅ 连接PostgreSQL主数据库（只读模式）")
 
     return metadata
 
@@ -129,7 +120,6 @@ def get_config_manager():
 # 获取元数据查询器和配置管理器
 metadata = get_metadata()
 config_manager = get_config_manager()
-dashboard_config = get_dashboard_config_manager()
 
 # 根据选择渲染不同页面
 try:
@@ -156,6 +146,6 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("""
 <div style='text-align: center; color: gray; font-size: 12px;'>
     A股数据库监控系统 v1.0.0<br>
-    Powered by Streamlit & DuckDB
+    Powered by Streamlit & PostgreSQL
 </div>
 """, unsafe_allow_html=True)

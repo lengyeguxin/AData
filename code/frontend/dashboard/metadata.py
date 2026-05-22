@@ -2,7 +2,7 @@
 元数据查询模块
 
 封装所有数据库元数据查询逻辑，提供统一的接口供监控页面使用
-Dashboard独立实现，不依赖后端代码，强制只使用快照数据库
+Dashboard独立实现，不依赖后端代码，连接PostgreSQL主数据库（只读模式）
 """
 
 from pathlib import Path
@@ -14,33 +14,26 @@ from dashboard.utils.formatters import extract_column_comments
 
 
 class DatabaseMetadata:
-    """数据库元数据查询器（只读，使用快照数据库）"""
+    """数据库元数据查询器（只读，连接PostgreSQL主数据库）"""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_config: Optional[Dict] = None):
         """
         初始化元数据查询器
 
         Args:
-            db_path: 数据库文件路径（仅用于定位快照，实际连接adata_snapshot.db）
-                     如果为None，默认使用项目根目录的database/adata_snapshot.db
+            db_config: 数据库配置字典（可选）
+                {
+                    'host': 'localhost',
+                    'port': 5432,
+                    'database': 'adatadb',
+                    'user': 'adata',
+                    'password': 'adata258963'
+                }
+                如果为None，DashboardDatabase会从后端config.yaml读取
 
-        注意：Dashboard永远只使用快照数据库，不连接主数据库adata.db
+        注意：Dashboard直接连接PostgreSQL主数据库（只读模式）
         """
-        if db_path is None:
-            # 使用绝对路径，避免工作目录问题
-            # parent.parent.parent.parent = AData根目录
-            project_root = Path(__file__).parent.parent.parent.parent
-            db_path = str(project_root / 'database' / 'adata.db')
-        else:
-            # 将相对路径转换为绝对路径（基于项目根目录）
-            # parent.parent.parent.parent = AData根目录
-            project_root = Path(__file__).parent.parent.parent.parent
-            db_path_obj = Path(db_path)
-            if not db_path_obj.is_absolute():
-                db_path = str(project_root / db_path)
-
-        # DashboardDatabase会自动转换为快照路径并强制使用快照数据库
-        self.db = DashboardDatabase(db_path)
+        self.db = DashboardDatabase(db_config)
 
     def get_table_list(self) -> List[str]:
         """
@@ -50,11 +43,11 @@ class DatabaseMetadata:
             表名列表
         """
         try:
-            # DuckDB查询所有用户表（排除系统表）
+            # PostgreSQL查询所有用户表（public schema）
             query = """
                 SELECT table_name
                 FROM information_schema.tables
-                WHERE table_schema = 'main'
+                WHERE table_schema = 'public'
                 AND table_type = 'BASE TABLE'
                 ORDER BY table_name
             """
@@ -74,21 +67,7 @@ class DatabaseMetadata:
             记录数
         """
         try:
-            # 对于大表，使用元数据估算以提高性能
-            large_tables = ['stock_daily', 'stock_daily_basic', 'adj_factor', 'stock_weekly']
-
-            if table_name in large_tables:
-                # 使用DuckDB的统计信息估算
-                query = """
-                    SELECT estimated_size
-                    FROM duckdb_tables()
-                    WHERE table_name = ?
-                """
-                result = self.db.execute(query, (table_name,))
-                if result and result[0]:
-                    return int(result[0][0])
-
-            # 对于小表，使用精确计数
+            # PostgreSQL使用精确计数
             query = f"SELECT COUNT(*) FROM {table_name}"
             result = self.db.execute(query)
             return result[0][0] if result else 0
@@ -177,14 +156,14 @@ class DatabaseMetadata:
             字段信息列表 [{column_name, data_type, is_nullable, comment}]
         """
         try:
-            # 1. 查询基本字段信息
+            # 1. 查询基本字段信息（PostgreSQL使用%s占位符）
             query = """
                 SELECT
                     column_name,
                     data_type,
                     is_nullable
                 FROM information_schema.columns
-                WHERE table_name = ?
+                WHERE table_name = %s
                 ORDER BY ordinal_position
             """
             columns = self.db.execute(query, (table_name,))
@@ -339,16 +318,18 @@ class DatabaseMetadata:
         # 统计总记录数
         total_rows = sum(t['row_count'] for t in tables_info)
 
-        # 获取数据库文件实际大小
-        import os
+        # PostgreSQL数据库大小查询（需要pg_database_size函数）
+        total_size_mb = 0.0
         try:
-            db_path = self.db_path
-            if os.path.exists(db_path):
-                total_size_mb = os.path.getsize(db_path) / 1024.0 / 1024.0
-            else:
-                total_size_mb = 0.0
+            query = """
+                SELECT pg_database_size(current_database()) / 1024.0 / 1024.0 as size_mb
+            """
+            result = self.db.execute(query)
+            if result and result[0]:
+                total_size_mb = float(result[0][0])
         except Exception:
-            total_size_mb = 0.0
+            # 如果查询失败，使用估算值
+            total_size_mb = sum(t['size_mb'] for t in tables_info)
 
         # 统计各分类表数量
         categories = {}

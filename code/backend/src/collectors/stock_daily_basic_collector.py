@@ -4,7 +4,7 @@ StockDailyBasicCollector - 每日估值指标拉取器
 严格按照CSV文档：
 - 接口名称：daily_basic
 - 接口参数：trade_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=32
+- 文档地址：https://tushare.pro/document/2%sdoc_id=32
 - 游标策略：daily_trade（按交易日记录）
 """
 
@@ -21,16 +21,16 @@ from src.core.transformers import convert_date_format
 class StockDailyBasicCollector(BaseCollector):
     """每日估值指标拉取器（P1行情表，按交易日每日拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化StockDailyBasicCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='stock_daily_basic',
             api_name='daily_basic',  # 严格按照CSV文档
@@ -100,7 +100,7 @@ class StockDailyBasicCollector(BaseCollector):
         """
         fields = "ts_code, trade_date, close, turnover_rate, turnover_rate_f, volume_ratio, pe, pe_ttm, pb, ps, ps_ttm, dv_ratio, dv_ttm, total_share, float_share, free_share, total_mv, circ_mv, updated_at"
 
-        placeholders = ', '.join(['?'] * 18) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 18) + ', NOW()'
 
         update_fields = "close = excluded.close, turnover_rate = excluded.turnover_rate, turnover_rate_f = excluded.turnover_rate_f, volume_ratio = excluded.volume_ratio, pe = excluded.pe, pe_ttm = excluded.pe_ttm, pb = excluded.pb, ps = excluded.ps, ps_ttm = excluded.ps_ttm, dv_ratio = excluded.dv_ratio, dv_ttm = excluded.dv_ttm, total_share = excluded.total_share, float_share = excluded.float_share, free_share = excluded.free_share, total_mv = excluded.total_mv, circ_mv = excluded.circ_mv, updated_at = NOW()"
 

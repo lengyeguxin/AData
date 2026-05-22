@@ -116,7 +116,7 @@ class GlobalCursorManager:
                 db.execute(schema_sql)
                 # db.close()  # 单例模式下不关闭连接，由程序退出时统一关闭
 
-            self.logger.info(f"游标表初始化成功: {self.db_path}")
+            self.logger.info(f"游标表初始化成功: {self.db_config['host']}:{self.db_config['port']}/{self.db_config['database']}")
             return True
 
         except Exception as e:
@@ -165,7 +165,7 @@ class GlobalCursorManager:
                    fetch_after_time, last_fetch_time, last_record_count, status,
                    created_at, updated_at
             FROM global_cursor
-            WHERE table_name = ?
+            WHERE table_name = %s
         """
 
         # 使用Database类统一管理连接
@@ -366,17 +366,17 @@ class GlobalCursorManager:
             query_get = """
                 SELECT cursor_strategy, dependencies, fetch_after_time, created_at
                 FROM global_cursor
-                WHERE table_name = ?
+                WHERE table_name = %s
             """
 
-            query_delete = "DELETE FROM global_cursor WHERE table_name = ?"
+            query_delete = "DELETE FROM global_cursor WHERE table_name = %s"
 
             query_insert = """
                 INSERT INTO global_cursor (
                     table_name, cursor_strategy, cursor_value, dependencies,
                     fetch_after_time, last_fetch_time, last_record_count,
                     status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, NOW())
+                ) VALUES (%s, %s, %s, %s, %s, NOW(), %s, %s, %s, NOW())
             """
 
             # 使用Database类统一管理连接，使用事务包裹DELETE+INSERT
@@ -431,17 +431,17 @@ class GlobalCursorManager:
                 SELECT cursor_strategy, cursor_value, dependencies, fetch_after_time,
                        last_fetch_time, last_record_count, created_at
                 FROM global_cursor
-                WHERE table_name = ?
+                WHERE table_name = %s
             """
 
-            query_delete = "DELETE FROM global_cursor WHERE table_name = ?"
+            query_delete = "DELETE FROM global_cursor WHERE table_name = %s"
 
             query_insert = """
                 INSERT INTO global_cursor (
                     table_name, cursor_strategy, cursor_value, dependencies,
                     fetch_after_time, last_fetch_time, last_record_count,
                     status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             """
 
             db = Database(self.db_config)
@@ -499,17 +499,17 @@ class GlobalCursorManager:
                 SELECT cursor_strategy, cursor_value, dependencies, fetch_after_time,
                        last_fetch_time, last_record_count, created_at
                 FROM global_cursor
-                WHERE table_name = ?
+                WHERE table_name = %s
             """
 
-            query_delete = "DELETE FROM global_cursor WHERE table_name = ?"
+            query_delete = "DELETE FROM global_cursor WHERE table_name = %s"
 
             query_insert = """
                 INSERT INTO global_cursor (
                     table_name, cursor_strategy, cursor_value, dependencies,
                     fetch_after_time, last_fetch_time, last_record_count,
                     status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             """
 
             db = Database(self.db_config)
@@ -740,10 +740,10 @@ class GlobalCursorManager:
         query = """
             UPDATE global_cursor
             SET cursor_value = NULL,
-                status = ?,
+                status = %s,
                 last_record_count = 0,
                 updated_at = NOW()
-            WHERE table_name = ?
+            WHERE table_name = %s
         """
 
         # 使用Database类统一管理连接
@@ -756,7 +756,7 @@ class GlobalCursorManager:
         query = """
             UPDATE global_cursor
             SET cursor_value = NULL,
-                status = ?,
+                status = %s,
                 last_record_count = 0,
                 updated_at = NOW()
         """

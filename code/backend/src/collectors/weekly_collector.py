@@ -4,7 +4,7 @@ WeeklyCollector - 周线行情拉取器
 严格按照CSV文档：
 - 接口名称：stk_week_month_adj（VIP接口）
 - 接口参数：ts_code={股票代码}, start_date={游标+1}, end_date={计算周五}, freq=week
-- 文档地址：https://tushare.pro/document/2?doc_id=365
+- 文档地址：https://tushare.pro/document/2%sdoc_id=365
 - 游标策略：daily_trade（按交易日记录）
 - VIP接口特性：周线、月线数据
 """
@@ -22,16 +22,16 @@ from src.core.transformers import convert_date_format
 class WeeklyCollector(BaseCollector):
     """周线行情拉取器（P1行情表，VIP接口，按交易日拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化WeeklyCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='stock_weekly',
             api_name='stk_week_month_adj',  # VIP接口（严格按照CSV文档）
@@ -105,7 +105,7 @@ class WeeklyCollector(BaseCollector):
         """
         fields = "ts_code, trade_date, end_date, freq, open, high, low, close, pre_close, open_qfq, high_qfq, low_qfq, close_qfq, open_hfq, high_hfq, low_hfq, close_hfq, vol, amount, change, pct_chg, updated_at"
 
-        placeholders = ', '.join(['?'] * 21) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 21) + ', NOW()'
 
         update_fields = "end_date = excluded.end_date, freq = excluded.freq, open = excluded.open, high = excluded.high, low = excluded.low, close = excluded.close, pre_close = excluded.pre_close, open_qfq = excluded.open_qfq, high_qfq = excluded.high_qfq, low_qfq = excluded.low_qfq, close_qfq = excluded.close_qfq, open_hfq = excluded.open_hfq, high_hfq = excluded.high_hfq, low_hfq = excluded.low_hfq, close_hfq = excluded.close_hfq, vol = excluded.vol, amount = excluded.amount, change = excluded.change, pct_chg = excluded.pct_chg, updated_at = NOW()"
 

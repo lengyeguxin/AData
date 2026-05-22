@@ -4,7 +4,7 @@ IncomeCollector - 利润表拉取器（VIP接口）
 严格按照CSV文档：
 - 接口名称：income_vip（VIP接口）
 - 接口参数：ann_date={游标+1}、report_type=1
-- 文档地址：https://tushare.pro/document/2?doc_id=33
+- 文档地址：https://tushare.pro/document/2%sdoc_id=33
 - 游标策略：daily_natural（按自然日记录）
 - VIP接口特性：更丰富字段、更快更新速度
 """
@@ -22,16 +22,16 @@ from src.core.transformers import convert_date_format
 class IncomeCollector(BaseCollector):
     """利润表拉取器（P2财务表，VIP接口，按自然日拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化IncomeCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='income',
             api_name='income_vip',  # VIP接口（严格按照CSV文档）
@@ -183,7 +183,7 @@ class IncomeCollector(BaseCollector):
         """
         fields = "ts_code, ann_date, f_ann_date, end_date, report_type, comp_type, end_type, basic_eps, diluted_eps, total_revenue, revenue, int_income, prem_earned, comm_income, n_commis_income, n_oth_income, n_oth_b_income, prem_income, out_prem, une_prem_reser, reins_income, n_sec_tb_income, n_sec_uw_income, n_asset_mg_income, oth_b_income, fv_value_chg_gain, invest_income, ass_invest_income, forex_gain, total_cogs, oper_cost, int_exp, comm_exp, biz_tax_surchg, sell_exp, admin_exp, fin_exp, assets_impair_loss, prem_refund, compens_payout, reser_insur_liab, div_payt, reins_exp, oper_exp, compens_payout_refu, insur_reser_refu, reins_cost_refund, other_bus_cost, operate_profit, non_oper_income, non_oper_exp, nca_disploss, total_profit, income_tax, n_income, n_income_attr_p, minority_gain, oth_compr_income, t_compr_income, compr_inc_attr_p, compr_inc_attr_m_s, ebit, ebitda, insurance_exp, undist_profit, distable_profit, rd_exp, fin_exp_int_exp, fin_exp_int_inc, transfer_surplus_rese, transfer_housing_imprest, transfer_oth, adj_lossgain, withdra_legal_surplus, withdra_legal_pubfund, withdra_biz_devfund, withdra_rese_fund, withdra_oth_ersu, workers_welfare, distr_profit_shrhder, prfshare_payable_dvd, comshare_payable_dvd, capit_comstock_div, net_after_nr_lp_correct, credit_impa_loss, net_expo_hedging_benefits, oth_impair_loss_assets, total_opcost, amodcost_fin_assets, oth_income, asset_disp_income, continued_net_profit, end_net_profit, update_flag, updated_at"
 
-        placeholders = ', '.join(['?'] * 94) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 94) + ', NOW()'
 
         update_fields = "f_ann_date = excluded.f_ann_date, comp_type = excluded.comp_type, end_type = excluded.end_type, basic_eps = excluded.basic_eps, diluted_eps = excluded.diluted_eps, total_revenue = excluded.total_revenue, revenue = excluded.revenue, int_income = excluded.int_income, prem_earned = excluded.prem_earned, comm_income = excluded.comm_income, n_commis_income = excluded.n_commis_income, n_oth_income = excluded.n_oth_income, n_oth_b_income = excluded.n_oth_b_income, prem_income = excluded.prem_income, out_prem = excluded.out_prem, une_prem_reser = excluded.une_prem_reser, reins_income = excluded.reins_income, n_sec_tb_income = excluded.n_sec_tb_income, n_sec_uw_income = excluded.n_sec_uw_income, n_asset_mg_income = excluded.n_asset_mg_income, oth_b_income = excluded.oth_b_income, fv_value_chg_gain = excluded.fv_value_chg_gain, invest_income = excluded.invest_income, ass_invest_income = excluded.ass_invest_income, forex_gain = excluded.forex_gain, total_cogs = excluded.total_cogs, oper_cost = excluded.oper_cost, int_exp = excluded.int_exp, comm_exp = excluded.comm_exp, biz_tax_surchg = excluded.biz_tax_surchg, sell_exp = excluded.sell_exp, admin_exp = excluded.admin_exp, fin_exp = excluded.fin_exp, assets_impair_loss = excluded.assets_impair_loss, prem_refund = excluded.prem_refund, compens_payout = excluded.compens_payout, reser_insur_liab = excluded.reser_insur_liab, div_payt = excluded.div_payt, reins_exp = excluded.reins_exp, oper_exp = excluded.oper_exp, compens_payout_refu = excluded.compens_payout_refu, insur_reser_refu = excluded.insur_reser_refu, reins_cost_refund = excluded.reins_cost_refund, other_bus_cost = excluded.other_bus_cost, operate_profit = excluded.operate_profit, non_oper_income = excluded.non_oper_income, non_oper_exp = excluded.non_oper_exp, nca_disploss = excluded.nca_disploss, total_profit = excluded.total_profit, income_tax = excluded.income_tax, n_income = excluded.n_income, n_income_attr_p = excluded.n_income_attr_p, minority_gain = excluded.minority_gain, oth_compr_income = excluded.oth_compr_income, t_compr_income = excluded.t_compr_income, compr_inc_attr_p = excluded.compr_inc_attr_p, compr_inc_attr_m_s = excluded.compr_inc_attr_m_s, ebit = excluded.ebit, ebitda = excluded.ebitda, insurance_exp = excluded.insurance_exp, undist_profit = excluded.undist_profit, distable_profit = excluded.distable_profit, rd_exp = excluded.rd_exp, fin_exp_int_exp = excluded.fin_exp_int_exp, fin_exp_int_inc = excluded.fin_exp_int_inc, transfer_surplus_rese = excluded.transfer_surplus_rese, transfer_housing_imprest = excluded.transfer_housing_imprest, transfer_oth = excluded.transfer_oth, adj_lossgain = excluded.adj_lossgain, withdra_legal_surplus = excluded.withdra_legal_surplus, withdra_legal_pubfund = excluded.withdra_legal_pubfund, withdra_biz_devfund = excluded.withdra_biz_devfund, withdra_rese_fund = excluded.withdra_rese_fund, withdra_oth_ersu = excluded.withdra_oth_ersu, workers_welfare = excluded.workers_welfare, distr_profit_shrhder = excluded.distr_profit_shrhder, prfshare_payable_dvd = excluded.prfshare_payable_dvd, comshare_payable_dvd = excluded.comshare_payable_dvd, capit_comstock_div = excluded.capit_comstock_div, net_after_nr_lp_correct = excluded.net_after_nr_lp_correct, credit_impa_loss = excluded.credit_impa_loss, net_expo_hedging_benefits = excluded.net_expo_hedging_benefits, oth_impair_loss_assets = excluded.oth_impair_loss_assets, total_opcost = excluded.total_opcost, amodcost_fin_assets = excluded.amodcost_fin_assets, oth_income = excluded.oth_income, asset_disp_income = excluded.asset_disp_income, continued_net_profit = excluded.continued_net_profit, end_net_profit = excluded.end_net_profit, update_flag = excluded.update_flag, updated_at = NOW()"
 

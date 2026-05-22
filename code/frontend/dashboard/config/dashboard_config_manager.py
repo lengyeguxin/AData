@@ -64,8 +64,8 @@ class DashboardConfigManager:
         """
         return {
             'database': {
-                'path': 'database/adata_snapshot.db',
-                'type': 'duckdb'
+                'type': 'postgres'
+                # PostgreSQL连接参数从backend/config/config.yaml读取
             },
             'logging': {
                 'level': 'INFO',
@@ -175,21 +175,23 @@ class DashboardConfigManager:
 
     def get_database_path(self) -> str:
         """
-        获取数据库路径
+        获取数据库路径（已废弃，Dashboard现在直接连接PostgreSQL主数据库）
 
         Returns:
-            快照数据库路径
+            空字符串（配置从backend/config/config.yaml读取）
         """
-        return self.get_database_config().get('path', 'database/adata_snapshot.db')
+        # Dashboard现在直接连接PostgreSQL，从backend/config/config.yaml读取连接参数
+        # 此方法保留用于兼容性，但不再使用
+        return self.get_database_config().get('path', '')
 
     def get_database_type(self) -> str:
         """
         获取数据库类型
 
         Returns:
-            数据库类型（如 'duckdb'）
+            数据库类型（如 'postgres'）
         """
-        return self.get_database_config().get('type', 'duckdb')
+        return self.get_database_config().get('type', 'postgres')
 
     # ==================== 日志配置相关方法 ====================
 

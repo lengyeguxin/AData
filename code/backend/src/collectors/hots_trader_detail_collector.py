@@ -4,7 +4,7 @@ HotsTraderDetailCollector - 游资交易明细拉取器
 严格按照CSV文档：
 - 接口名称：hm_detail
 - 接口参数：trade_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=312
+- 文档地址：https://tushare.pro/document/2%sdoc_id=312
 - 游标策略：daily_trade（按交易日记录）
 """
 
@@ -21,16 +21,16 @@ from src.core.transformers import convert_date_format
 class HotsTraderDetailCollector(BaseCollector):
     """游资交易明细拉取器（P4游资表，按交易日每日拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化HotsTraderDetailCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='hots_trader_detail',
             api_name='hm_detail',  # 实际接口名（修正）
@@ -116,7 +116,7 @@ class HotsTraderDetailCollector(BaseCollector):
         """
         fields = "trade_date, ts_code, ts_name, buy_amount, sell_amount, net_amount, hm_name, hm_orgs, tag, updated_at"
 
-        placeholders = ', '.join(['?'] * 9) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 9) + ', NOW()'
 
         update_fields = "ts_name = excluded.ts_name, buy_amount = excluded.buy_amount, sell_amount = excluded.sell_amount, net_amount = excluded.net_amount, hm_name = excluded.hm_name, hm_orgs = excluded.hm_orgs, tag = excluded.tag, updated_at = NOW()"
 

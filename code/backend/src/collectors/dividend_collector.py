@@ -4,7 +4,7 @@ DividendCollector - 分红送股拉取器
 严格按照CSV文档：
 - 接口名称：dividend（标准接口）
 - 接口参数：ann_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=103
+- 文档地址：https://tushare.pro/document/2%sdoc_id=103
 - 游标策略：daily_natural（按自然日记录）
 """
 
@@ -21,9 +21,9 @@ from src.core.transformers import convert_date_format
 class DividendCollector(BaseCollector):
     """分红送股拉取器（P2财务表，标准接口）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         super().__init__(
-            db_path=db_path, api=api, table_name='dividend',
+            db_config=db_config, api=api, table_name='dividend',
             api_name='dividend', date_field='ann_date', vip_interface=False
         )
 
@@ -108,7 +108,7 @@ class DividendCollector(BaseCollector):
         """
         fields = "ts_code, end_date, ann_date, div_proc, stk_div, stk_bo_rate, stk_co_rate, cash_div, cash_div_tax, record_date, ex_date, pay_date, div_listdate, imp_ann_date, base_date, base_share, updated_at"
 
-        placeholders = ', '.join(['?'] * 16) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 16) + ', NOW()'
 
         update_fields = "end_date = excluded.end_date, div_proc = excluded.div_proc, stk_div = excluded.stk_div, stk_bo_rate = excluded.stk_bo_rate, stk_co_rate = excluded.stk_co_rate, cash_div = excluded.cash_div, cash_div_tax = excluded.cash_div_tax, ex_date = excluded.ex_date, pay_date = excluded.pay_date, div_listdate = excluded.div_listdate, imp_ann_date = excluded.imp_ann_date, base_date = excluded.base_date, base_share = excluded.base_share, updated_at = NOW()"
 

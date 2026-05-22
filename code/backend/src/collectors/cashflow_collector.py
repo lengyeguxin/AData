@@ -4,7 +4,7 @@ CashflowCollector - 现金流量表拉取器（VIP接口）
 严格按照CSV文档：
 - 接口名称：cashflow_vip（VIP接口）
 - 接口参数：ann_date={游标+1}、report_type=1
-- 文档地址：https://tushare.pro/document/2?doc_id=44
+- 文档地址：https://tushare.pro/document/2%sdoc_id=44
 - 游标策略：daily_natural（按自然日记录）
 - VIP接口特性：更丰富字段、更快更新速度
 """
@@ -22,16 +22,16 @@ from src.core.transformers import convert_date_format
 class CashflowCollector(BaseCollector):
     """现金流量表拉取器（P2财务表，VIP接口，按自然日拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化CashflowCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='cashflow',
             api_name='cashflow_vip',  # VIP接口（严格按照CSV文档）
@@ -187,7 +187,7 @@ class CashflowCollector(BaseCollector):
         """
         fields = "ts_code, ann_date, f_ann_date, end_date, comp_type, report_type, end_type, net_profit, finan_exp, c_fr_sale_sg, recp_tax_rends, n_depos_incr_fi, n_incr_loans_cb, n_inc_borr_oth_fi, prem_fr_orig_contr, n_incr_insured_dep, n_reinsur_prem, n_incr_disp_tfa, ifc_cash_incr, n_incr_disp_faas, n_incr_loans_oth_bank, n_cap_incr_repur, c_fr_oth_operate_a, c_inf_fr_operate_a, c_paid_goods_s, c_paid_to_for_empl, c_paid_for_taxes, n_incr_clt_loan_adv, n_incr_dep_cbob, c_pay_claims_orig_inco, pay_handling_chrg, pay_comm_insur_plcy, oth_cash_pay_oper_act, st_cash_out_act, n_cashflow_act, oth_recp_ral_inv_act, c_disp_withdrwl_invest, c_recp_return_invest, n_recp_disp_fiolta, n_recp_disp_sobu, stot_inflows_inv_act, c_pay_acq_const_fiolta, c_paid_invest, n_disp_subs_oth_biz, oth_pay_ral_inv_act, n_incr_pledge_loan, stot_out_inv_act, n_cashflow_inv_act, c_recp_borrow, proc_issue_bonds, oth_cash_recp_ral_fnc_act, stot_cash_in_fnc_act, free_cashflow, c_prepay_amt_borr, c_pay_dist_dpcp_int_exp, incl_dvd_profit_paid_sc_ms, oth_cashpay_ral_fnc_act, stot_cashout_fnc_act, n_cash_flows_fnc_act, eff_fx_flu_cash, n_incr_cash_cash_equ, c_cash_equ_beg_period, c_cash_equ_end_period, c_recp_cap_contrib, incl_cash_rec_saims, uncon_invest_loss, prov_depr_assets, depr_fa_coga_dpba, amort_intang_assets, lt_amort_deferred_exp, decr_deferred_exp, incr_acc_exp, loss_disp_fiolta, loss_scr_fa, loss_fv_chg, invest_loss, decr_def_inc_tax_assets, incr_def_inc_tax_liab, decr_inventories, decr_oper_payable, incr_oper_payable, others, im_net_cashflow_oper_act, conv_debt_into_cap, conv_copbonds_due_within_1y, fa_fnc_leases, im_n_incr_cash_equ, net_dism_capital_add, net_cash_rece_sec, credit_impa_loss, use_right_asset_dep, oth_loss_asset, end_bal_cash, beg_bal_cash, end_bal_cash_equ, beg_bal_cash_equ, update_flag, updated_at"
 
-        placeholders = ', '.join(['?'] * 97) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 97) + ', NOW()'
 
         update_fields = "f_ann_date = excluded.f_ann_date, comp_type = excluded.comp_type, end_type = excluded.end_type, net_profit = excluded.net_profit, finan_exp = excluded.finan_exp, c_fr_sale_sg = excluded.c_fr_sale_sg, recp_tax_rends = excluded.recp_tax_rends, n_depos_incr_fi = excluded.n_depos_incr_fi, n_incr_loans_cb = excluded.n_incr_loans_cb, n_inc_borr_oth_fi = excluded.n_inc_borr_oth_fi, prem_fr_orig_contr = excluded.prem_fr_orig_contr, n_incr_insured_dep = excluded.n_incr_insured_dep, n_reinsur_prem = excluded.n_reinsur_prem, n_incr_disp_tfa = excluded.n_incr_disp_tfa, ifc_cash_incr = excluded.ifc_cash_incr, n_incr_disp_faas = excluded.n_incr_disp_faas, n_incr_loans_oth_bank = excluded.n_incr_loans_oth_bank, n_cap_incr_repur = excluded.n_cap_incr_repur, c_fr_oth_operate_a = excluded.c_fr_oth_operate_a, c_inf_fr_operate_a = excluded.c_inf_fr_operate_a, c_paid_goods_s = excluded.c_paid_goods_s, c_paid_to_for_empl = excluded.c_paid_to_for_empl, c_paid_for_taxes = excluded.c_paid_for_taxes, n_incr_clt_loan_adv = excluded.n_incr_clt_loan_adv, n_incr_dep_cbob = excluded.n_incr_dep_cbob, c_pay_claims_orig_inco = excluded.c_pay_claims_orig_inco, pay_handling_chrg = excluded.pay_handling_chrg, pay_comm_insur_plcy = excluded.pay_comm_insur_plcy, oth_cash_pay_oper_act = excluded.oth_cash_pay_oper_act, st_cash_out_act = excluded.st_cash_out_act, n_cashflow_act = excluded.n_cashflow_act, oth_recp_ral_inv_act = excluded.oth_recp_ral_inv_act, c_disp_withdrwl_invest = excluded.c_disp_withdrwl_invest, c_recp_return_invest = excluded.c_recp_return_invest, n_recp_disp_fiolta = excluded.n_recp_disp_fiolta, n_recp_disp_sobu = excluded.n_recp_disp_sobu, stot_inflows_inv_act = excluded.stot_inflows_inv_act, c_pay_acq_const_fiolta = excluded.c_pay_acq_const_fiolta, c_paid_invest = excluded.c_paid_invest, n_disp_subs_oth_biz = excluded.n_disp_subs_oth_biz, oth_pay_ral_inv_act = excluded.oth_pay_ral_inv_act, n_incr_pledge_loan = excluded.n_incr_pledge_loan, stot_out_inv_act = excluded.stot_out_inv_act, n_cashflow_inv_act = excluded.n_cashflow_inv_act, c_recp_borrow = excluded.c_recp_borrow, proc_issue_bonds = excluded.proc_issue_bonds, oth_cash_recp_ral_fnc_act = excluded.oth_cash_recp_ral_fnc_act, stot_cash_in_fnc_act = excluded.stot_cash_in_fnc_act, free_cashflow = excluded.free_cashflow, c_prepay_amt_borr = excluded.c_prepay_amt_borr, c_pay_dist_dpcp_int_exp = excluded.c_pay_dist_dpcp_int_exp, incl_dvd_profit_paid_sc_ms = excluded.incl_dvd_profit_paid_sc_ms, oth_cashpay_ral_fnc_act = excluded.oth_cashpay_ral_fnc_act, stot_cashout_fnc_act = excluded.stot_cashout_fnc_act, n_cash_flows_fnc_act = excluded.n_cash_flows_fnc_act, eff_fx_flu_cash = excluded.eff_fx_flu_cash, n_incr_cash_cash_equ = excluded.n_incr_cash_cash_equ, c_cash_equ_beg_period = excluded.c_cash_equ_beg_period, c_cash_equ_end_period = excluded.c_cash_equ_end_period, c_recp_cap_contrib = excluded.c_recp_cap_contrib, incl_cash_rec_saims = excluded.incl_cash_rec_saims, uncon_invest_loss = excluded.uncon_invest_loss, prov_depr_assets = excluded.prov_depr_assets, depr_fa_coga_dpba = excluded.depr_fa_coga_dpba, amort_intang_assets = excluded.amort_intang_assets, lt_amort_deferred_exp = excluded.lt_amort_deferred_exp, decr_deferred_exp = excluded.decr_deferred_exp, incr_acc_exp = excluded.incr_acc_exp, loss_disp_fiolta = excluded.loss_disp_fiolta, loss_scr_fa = excluded.loss_scr_fa, loss_fv_chg = excluded.loss_fv_chg, invest_loss = excluded.invest_loss, decr_def_inc_tax_assets = excluded.decr_def_inc_tax_assets, incr_def_inc_tax_liab = excluded.incr_def_inc_tax_liab, decr_inventories = excluded.decr_inventories, decr_oper_payable = excluded.decr_oper_payable, incr_oper_payable = excluded.incr_oper_payable, others = excluded.others, im_net_cashflow_oper_act = excluded.im_net_cashflow_oper_act, conv_debt_into_cap = excluded.conv_debt_into_cap, conv_copbonds_due_within_1y = excluded.conv_copbonds_due_within_1y, fa_fnc_leases = excluded.fa_fnc_leases, im_n_incr_cash_equ = excluded.im_n_incr_cash_equ, net_dism_capital_add = excluded.net_dism_capital_add, net_cash_rece_sec = excluded.net_cash_rece_sec, credit_impa_loss = excluded.credit_impa_loss, use_right_asset_dep = excluded.use_right_asset_dep, oth_loss_asset = excluded.oth_loss_asset, end_bal_cash = excluded.end_bal_cash, beg_bal_cash = excluded.beg_bal_cash, end_bal_cash_equ = excluded.end_bal_cash_equ, beg_bal_cash_equ = excluded.beg_bal_cash_equ, update_flag = excluded.update_flag, updated_at = NOW()"
 

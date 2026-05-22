@@ -3,7 +3,7 @@
 
 表：ths_index_daily
 API：ths_daily
-- 文档地址：https://tushare.pro/document/2?doc_id=260
+- 文档地址：https://tushare.pro/document/2%sdoc_id=260
 游标策略：daily_trade（按交易日）
 """
 import sys
@@ -19,9 +19,9 @@ from src.core.transformers import convert_date_format
 class THSIndexDailyCollector(BaseCollector):
     """同花顺指数日线Collector"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='ths_index_daily',
             api_name='ths_daily',
@@ -80,7 +80,7 @@ class THSIndexDailyCollector(BaseCollector):
         """
         fields = "ts_code, trade_date, close, open, high, low, pre_close, avg_price, change, pct_change, vol, turnover_rate, total_mv, float_mv, updated_at"
 
-        placeholders = ', '.join(['?'] * 14) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 14) + ', NOW()'
 
         update_fields = "close = excluded.close, open = excluded.open, high = excluded.high, low = excluded.low, pre_close = excluded.pre_close, avg_price = excluded.avg_price, change = excluded.change, pct_change = excluded.pct_change, vol = excluded.vol, turnover_rate = excluded.turnover_rate, total_mv = excluded.total_mv, float_mv = excluded.float_mv, updated_at = NOW()"
 

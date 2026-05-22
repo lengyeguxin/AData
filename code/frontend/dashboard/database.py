@@ -2,56 +2,73 @@
 Dashboard数据库连接模块
 
 独立的数据库访问层，不依赖后端代码
-只提供只读操作，强制使用快照数据库，绝不连接主数据库adata.db
+只提供只读操作，直接连接PostgreSQL主数据库（只读模式）
 """
 
-import duckdb
+import psycopg2
+import psycopg2.pool
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 import logging
+import yaml
 
 logger = logging.getLogger('dashboard')
 
 
 class DashboardDatabase:
-    """Dashboard专用数据库连接（只读，强制使用快照数据库）"""
+    """Dashboard专用数据库连接（只读，连接PostgreSQL主数据库）"""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_config: Optional[Dict] = None):
         """
         初始化数据库连接
 
         Args:
-            db_path: 数据库路径（仅用于定位快照数据库，实际连接快照）
+            db_config: 数据库配置字典（可选）
+                {
+                    'host': 'localhost',
+                    'port': 5432,
+                    'database': 'adatadb',
+                    'user': 'adata',
+                    'password': 'adata258963'
+                }
+                如果为None，从后端config.yaml读取
 
-        注意：Dashboard永远只连接快照数据库adata_snapshot.db，不连接主数据库adata.db
+        注意：Dashboard直接连接PostgreSQL主数据库（只读模式）
         """
-        if db_path is None:
-            # 默认使用项目根目录的database/adata_snapshot.db
-            project_root = Path(__file__).parent.parent.parent.parent
-            snapshot_path = project_root / 'database' / 'adata_snapshot.db'
-        else:
-            # 智能路径转换：如果是主数据库路径，转为快照路径；已经是快照路径，直接使用
-            if '_snapshot.db' in db_path:
-                # 已经是快照路径，直接使用
-                snapshot_path = Path(db_path)
-                logger.debug(f"使用现有快照路径: {db_path}")
+        if db_config is None:
+            # 从后端配置文件读取PostgreSQL连接信息
+            backend_config_path = Path(__file__).parent.parent.parent.parent / 'code' / 'backend' / 'config' / 'config.yaml'
+            if backend_config_path.exists():
+                with open(backend_config_path, 'r', encoding='utf-8') as f:
+                    backend_config = yaml.safe_load(f)
+                    db_config = backend_config.get('database', {})
+                    logger.info(f"从后端配置读取PostgreSQL连接信息: {backend_config_path}")
             else:
-                # 主数据库路径，转换为快照路径
-                snapshot_path = Path(db_path.replace('.db', '_snapshot.db'))
-                logger.debug(f"转换主数据库路径为快照路径: {db_path} → {snapshot_path}")
+                # 使用默认PostgreSQL配置
+                db_config = {
+                    'host': 'localhost',
+                    'port': 5432,
+                    'database': 'adatadb',
+                    'user': 'adata',
+                    'password': 'adata258963'
+                }
+                logger.info("使用默认PostgreSQL配置")
 
-        # 检查快照数据库是否存在
-        if not snapshot_path.exists():
-            logger.error(f"快照数据库不存在: {snapshot_path}")
-            raise FileNotFoundError(f"快照数据库不存在: {snapshot_path}")
+        self.db_config = db_config
+        logger.info(f"Dashboard连接PostgreSQL: {db_config['host']}:{db_config['port']}/{db_config['database']}")
 
-        self.db_path = str(snapshot_path)
-        logger.info(f"Dashboard连接快照数据库: {self.db_path}")
-
-        # 建立连接（只读模式）
+        # 建立连接池（只读模式）
         try:
-            self.conn = duckdb.connect(self.db_path, read_only=True)
-            logger.info(f"数据库连接成功（只读模式）")
+            self.pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=5,
+                host=db_config['host'],
+                port=db_config['port'],
+                database=db_config['database'],
+                user=db_config['user'],
+                password=db_config['password']
+            )
+            logger.info("PostgreSQL连接池初始化成功（只读模式）")
         except Exception as e:
             logger.error(f"数据库连接失败: {e}")
             raise
@@ -62,25 +79,32 @@ class DashboardDatabase:
 
         Args:
             query: SQL查询语句
-            params: 参数（可选）
+            params: 参数（可选，PostgreSQL使用%s占位符）
 
         Returns:
             查询结果列表
         """
+        conn = None
         try:
-            if params:
-                result = self.conn.execute(query, params).fetchall()
-            else:
-                result = self.conn.execute(query).fetchall()
-            return result
+            conn = self.pool.getconn()
+            with conn.cursor() as cursor:
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                result = cursor.fetchall()
+                return result
         except Exception as e:
-            # 区分错误类型：列不存在是预期情况（尝试不同日期字段），使用DEBUG级别
             error_msg = str(e)
-            if 'not found in FROM clause' in error_msg or 'Candidate bindings:' in error_msg:
+            if 'not found in FROM clause' in error_msg or 'does not exist' in error_msg:
                 logger.debug(f"SQL查询失败（预期情况）: {query[:100]}... - {e}")
             else:
                 logger.error(f"SQL执行失败: {query[:100]}... - {e}")
             raise
+        finally:
+            if conn:
+                self.pool.putconn(conn)
 
     def get_table_list(self) -> List[str]:
         """
@@ -92,7 +116,7 @@ class DashboardDatabase:
         query = """
             SELECT table_name
             FROM information_schema.tables
-            WHERE table_schema = 'main'
+            WHERE table_schema = 'public'
             AND table_type = 'BASE TABLE'
             ORDER BY table_name
         """
@@ -126,16 +150,16 @@ class DashboardDatabase:
         query = """
             SELECT column_name, data_type, is_nullable
             FROM information_schema.columns
-            WHERE table_name = ?
+            WHERE table_name = %s
             ORDER BY ordinal_position
         """
         return self.execute(query, (table_name,))
 
     def close(self):
-        """关闭数据库连接"""
-        if self.conn:
-            self.conn.close()
-            logger.info("数据库连接已关闭")
+        """关闭数据库连接池"""
+        if self.pool:
+            self.pool.closeall()
+            logger.info("PostgreSQL连接池已关闭")
 
     def __enter__(self):
         """支持上下文管理"""

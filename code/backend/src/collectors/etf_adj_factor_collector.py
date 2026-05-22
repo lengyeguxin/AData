@@ -4,7 +4,7 @@ ETFAdjFactorCollector - ETF复权因子拉取器
 严格按照CSV文档：
 - 接口名称：fund_adj
 - 接口参数：trade_date={游标+1}
-- 文档地址：https://tushare.pro/document/2?doc_id=199
+- 文档地址：https://tushare.pro/document/2%sdoc_id=199
 - 游标策略：daily_trade（按交易日记录）
 """
 
@@ -21,16 +21,16 @@ from src.core.transformers import convert_date_format
 class ETFAdjFactorCollector(BaseCollector):
     """ETF复权因子拉取器（P1行情表，按交易日每日拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化ETFAdjFactorCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='etf_adj_factor',
             api_name='fund_adj',  # 严格按照CSV文档
@@ -84,7 +84,7 @@ class ETFAdjFactorCollector(BaseCollector):
         return """
             INSERT INTO etf_adj_factor (
                 ts_code, trade_date, adj_factor, updated_at
-            ) VALUES (?, ?, ?, NOW())
+            ) VALUES (%s, %s, %s, NOW())
             ON CONFLICT (ts_code, trade_date)
             DO UPDATE SET
                 adj_factor = excluded.adj_factor,

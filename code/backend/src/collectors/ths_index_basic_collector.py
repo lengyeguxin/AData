@@ -4,7 +4,7 @@ THSIndexBasicCollector - 同花顺指数列表拉取器
 严格按照CSV文档：
 - 接口名称：ths_index
 - 接口参数：exchange=A, type=N/S（分两次拉取）
-- 文档地址：https://tushare.pro/document/2?doc_id=259
+- 文档地址：https://tushare.pro/document/2%sdoc_id=259
 - 游标策略：none（无游标，全量拉取）
 """
 
@@ -21,16 +21,16 @@ from src.core.transformers import convert_date_format
 class THSIndexBasicCollector(BaseCollector):
     """同花顺指数列表拉取器（P0前置表，全量拉取）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化THSIndexBasicCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='ths_index_basic',
             api_name='ths_index',  # 严格按照CSV文档
@@ -91,7 +91,7 @@ class THSIndexBasicCollector(BaseCollector):
         """
         fields = "ts_code, name, count, exchange, list_date, type, updated_at"
 
-        placeholders = ', '.join(['?'] * 6) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 6) + ', NOW()'
 
         update_fields = "name = excluded.name, count = excluded.count, exchange = excluded.exchange, list_date = excluded.list_date, type = excluded.type, updated_at = NOW()"
 

@@ -4,7 +4,7 @@ TradeCalendarCollector - 交易日历拉取器
 严格按照CSV文档：
 - 接口名称：trade_cal
 - 接口参数：exchange=SSE/SZSE, start_date={游标年+1}0101, end_date={当前年}1231
-- 文档地址：https://tushare.pro/document/2?doc_id=26
+- 文档地址：https://tushare.pro/document/2%sdoc_id=26
 - 游标策略：yearly（按年记录）
 """
 
@@ -22,16 +22,16 @@ from src.core.transformers import convert_date_format
 class TradeCalendarCollector(BaseCollector):
     """交易日历拉取器（P0前置表，按年更新）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化TradeCalendarCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='trade_calendar',
             api_name='trade_cal',  # 严格按照CSV文档
@@ -98,7 +98,7 @@ class TradeCalendarCollector(BaseCollector):
         return """
             INSERT INTO trade_calendar (
                 exchange, cal_date, is_open, pretrade_date, updated_at
-            ) VALUES (?, ?, ?, ?, NOW())
+            ) VALUES (%s, %s, %s, %s, NOW())
             ON CONFLICT (exchange, cal_date)
             DO UPDATE SET
                 is_open = excluded.is_open,

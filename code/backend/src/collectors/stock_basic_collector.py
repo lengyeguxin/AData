@@ -4,7 +4,7 @@ StockBasicCollector - 股票列表拉取器
 严格按照CSV文档：
 - 接口名称：stock_basic
 - 接口参数：无参数
-- 文档地址：https://tushare.pro/document/2?doc_id=25
+- 文档地址：https://tushare.pro/document/2%sdoc_id=25
 - 游标策略：none（无游标，全量拉取）
 """
 
@@ -21,16 +21,16 @@ from src.core.transformers import convert_date_format
 class StockBasicCollector(BaseCollector):
     """股票列表拉取器（P0前置表）"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         """
         初始化StockBasicCollector
 
         Args:
-            db_path: 数据库路径
+            db_config: 数据库配置字典
             api: TushareAPI实例
         """
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='stock_basic',
             api_name='stock_basic',  # 严格按照CSV文档
@@ -79,7 +79,7 @@ class StockBasicCollector(BaseCollector):
         """
         fields = "ts_code, symbol, name, area, industry, fullname, enname, cnspell, market, exchange, curr_type, list_status, list_date, delist_date, is_hs, act_name, act_ent_type, updated_at"
 
-        placeholders = ', '.join(['?'] * 17) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 17) + ', NOW()'
 
         update_fields = "symbol = excluded.symbol, name = excluded.name, area = excluded.area, industry = excluded.industry, fullname = excluded.fullname, enname = excluded.enname, cnspell = excluded.cnspell, market = excluded.market, exchange = excluded.exchange, curr_type = excluded.curr_type, list_status = excluded.list_status, list_date = excluded.list_date, delist_date = excluded.delist_date, is_hs = excluded.is_hs, act_name = excluded.act_name, act_ent_type = excluded.act_ent_type, updated_at = NOW()"
 

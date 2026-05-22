@@ -3,7 +3,7 @@
 
 表：ths_moneyflow
 API：moneyflow_ths
-- 文档地址：https://tushare.pro/document/2?doc_id=348
+- 文档地址：https://tushare.pro/document/2%sdoc_id=348
 游标策略：daily_trade（按交易日）
 """
 import sys
@@ -19,9 +19,9 @@ from src.core.transformers import convert_date_format
 class THSMoneyflowCollector(BaseCollector):
     """同花顺资金流向Collector"""
 
-    def __init__(self, db_path: str, api: TushareAPI):
+    def __init__(self, db_config: dict, api: TushareAPI):
         super().__init__(
-            db_path=db_path,
+            db_config=db_config,
             api=api,
             table_name='ths_moneyflow',
             api_name='moneyflow_ths',
@@ -79,7 +79,7 @@ class THSMoneyflowCollector(BaseCollector):
         """
         fields = "trade_date, ts_code, name, pct_change, latest, net_amount, net_d5_amount, buy_lg_amount, buy_lg_amount_rate, buy_md_amount, buy_md_amount_rate, buy_sm_amount, buy_sm_amount_rate, updated_at"
 
-        placeholders = ', '.join(['?'] * 13) + ', NOW()'
+        placeholders = ', '.join(['%s'] * 13) + ', NOW()'
 
         update_fields = "name = excluded.name, pct_change = excluded.pct_change, latest = excluded.latest, net_amount = excluded.net_amount, net_d5_amount = excluded.net_d5_amount, buy_lg_amount = excluded.buy_lg_amount, buy_lg_amount_rate = excluded.buy_lg_amount_rate, buy_md_amount = excluded.buy_md_amount, buy_md_amount_rate = excluded.buy_md_amount_rate, buy_sm_amount = excluded.buy_sm_amount, buy_sm_amount_rate = excluded.buy_sm_amount_rate, updated_at = NOW()"
 
