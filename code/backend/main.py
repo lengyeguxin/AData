@@ -90,33 +90,6 @@ def initialize_database(db_config: dict) -> Database:
     return db
 
 
-def create_snapshot(db_path: str, snapshot_locations: list) -> bool:
-    """创建快照（双位置备份）"""
-    import shutil
-    from datetime import datetime
-
-    logger.info(f"开始创建快照: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-    try:
-        db_file = Path(db_path)
-        if not db_file.exists():
-            logger.warning(f"数据库文件不存在，跳过快照: {db_path}")
-            return False
-
-        # 创建快照到多个位置
-        for location in snapshot_locations:
-            snapshot_path = Path(location)
-            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-
-            shutil.copy2(db_file, snapshot_path)
-            logger.info(f"快照已创建: {snapshot_path}")
-
-        logger.info("✓ 快照创建成功（双位置备份）")
-        return True
-
-    except Exception as e:
-        logger.error(f"快照创建失败: {e}")
-        return False
 
 
 def main():
@@ -126,7 +99,6 @@ def main():
     parser.add_argument('--fetch', action='store_true', help='仅拉取数据（一次性）')
     parser.add_argument('--scheduler', action='store_true', help='仅启动定时任务调度器')
     parser.add_argument('--no-fetch', action='store_true', help='跳过初始数据拉取')
-    parser.add_argument('--snapshot', action='store_true', help='立即创建快照')
 
     args = parser.parse_args()
 
@@ -144,21 +116,14 @@ def main():
 
     # 2. 初始化数据库和游标
     db_config = config.get('database', {})
-    if db_config.get('type') == 'postgresql':
-        # PostgreSQL配置
-        db = initialize_database(db_config)
-        # 游标管理器也需要db_config
-        cursor_manager = GlobalCursorManager(db_config, str(Path(args.config).parent))
-    else:
-        # DuckDB配置（向后兼容）
-        db_path_config = config.get('database', {}).get('path', 'database/adata.db')
-        db_path = str(project_root / db_path_config)
-        logger.warning(f"使用DuckDB（向后兼容模式），建议切换到PostgreSQL")
-        # DuckDB需要转换配置格式
-        db_config_compat = {'path': db_path}
-        db = Database(db_config_compat)
-        cursor_manager = GlobalCursorManager(db_path, str(Path(args.config).parent))
+    if not db_config:
+        logger.error("配置文件缺少database配置")
+        sys.exit(1)
 
+    db = initialize_database(db_config)
+
+    # 初始化游标表
+    cursor_manager = GlobalCursorManager(db_config, str(Path(args.config).parent))
     cursor_manager.initialize()
     logger.info("游标表初始化完成")
 
@@ -169,7 +134,7 @@ def main():
     # 模式1：仅拉取数据（一次性）
     if args.fetch:
         logger.info("启动模式：仅拉取数据（一次性）")
-        fetcher = DataFetcher(db_path, config)
+        fetcher = DataFetcher(db_config, config)
         logger.info("开始拉取数据...")
         fetcher.start()
         logger.info("✓ 数据拉取完成")
@@ -201,16 +166,7 @@ def main():
     # 模式3：集成启动（默认）
     logger.info("启动模式：集成启动（先拉取数据，再启动调度器）")
 
-    # 4. 立即创建快照（如果指定）
-    if args.snapshot:
-        snapshot_config = config.get('snapshot', {})
-        if snapshot_config.get('enabled', True):
-            snapshot_locations = snapshot_config.get('locations', ['database/adata_snapshot.db'])
-            create_snapshot(db_path, snapshot_locations)
-        else:
-            logger.info("快照功能已禁用（snapshot.enabled=false）")
-
-    # 5. 项目启动时，先进行一次数据拉取
+    # 4. 项目启动时，先进行一次数据拉取
     fetch_enabled = config.get('fetch', {}).get('enabled', True)
 
     if not args.no_fetch and fetch_enabled:
@@ -218,7 +174,7 @@ def main():
         logger.info("设置 running=True（数据正在拉取）")
 
         # 使用DataFetcher拉取数据（会自动设置running状态）
-        fetcher = DataFetcher(db_path, config)
+        fetcher = DataFetcher(db_config, config)
         fetcher.start()
         logger.info("✓ 首次数据拉取完成（running=False）")
     else:
