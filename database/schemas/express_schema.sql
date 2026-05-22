@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS express (
     net_profit_max REAL,  -- 预告净利润上限（万元）
     last_parent_net REAL,  -- 上年同期归属母公司净利润
     first_ann_date DATE,  -- 首次公告日
-    summary VARCHAR(100),  -- 业绩预告摘要
-    change_reason VARCHAR(500),  -- 业绩变动原因
+    summary VARCHAR(200),  -- 业绩预告摘要（扩大长度）
+    change_reason TEXT,  -- 业绩变动原因（改为TEXT类型，无长度限制）
     updated_at TIMESTAMP DEFAULT NOW(),  -- 更新时间
     PRIMARY KEY (ts_code, end_date, ann_date)
 );
