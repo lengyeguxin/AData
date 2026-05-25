@@ -133,16 +133,16 @@ class DatabaseMetadata:
             表大小（MB）
         """
         try:
-            # 使用pragate_table_info获取表的统计信息
-            query = f"PRAGMA table_info('{table_name}')"
+            # PostgreSQL使用pg_total_relation_size获取表大小（包括索引和TOAST数据）
+            query = f"SELECT pg_total_relation_size('{table_name}') / 1024.0 / 1024.0 as size_mb"
             result = self.db.execute(query)
 
-            # DuckDB不直接提供表大小，使用行数估算
-            # 每行平均约100字节（粗略估算）
-            row_count = self.get_table_row_count(table_name)
-            estimated_size_mb = (row_count * 100) / 1024.0 / 1024.0
-            return estimated_size_mb
-        except Exception:
+            if result and result[0]:
+                return float(result[0][0])
+            else:
+                return 0.0
+        except Exception as e:
+            # 如果pg_total_relation_size函数不可用或表不存在，返回0
             return 0.0
 
     def get_table_schema(self, table_name: str) -> List[Dict]:
