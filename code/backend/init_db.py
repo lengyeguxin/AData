@@ -68,8 +68,8 @@ def initialize_database(db_config: dict, force: bool = False) -> Database:
     result = db.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
     existing_tables = [row[0] for row in result]
 
-    # 期望的28张表（global_cursor + 27张数据表）
-    expected_table_count = 28
+    # 期望的22张表（global_cursor + 21张数据表）
+    expected_table_count = 22
 
     if len(existing_tables) >= expected_table_count and not force:
         logger.info(f"数据库已有完整Schema（{len(existing_tables)}张表）")
