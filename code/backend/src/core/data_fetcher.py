@@ -34,7 +34,6 @@ class DataFetcher:
             'trade_calendar',
             'stock_basic',
             'index_basic',
-            'ths_index_basic',
             'etf_basic',
             'etf_index'
         ],
@@ -56,13 +55,7 @@ class DataFetcher:
             'express_brief',
             'dividend'
         ],
-        'P3': [
-            'ths_moneyflow',
-            'ths_concept_moneyflow',
-            'ths_industry_moneyflow',
-            'ths_concept_member',
-            'ths_index_daily'
-        ],
+        'P3': [],
         'P4': [
             'hots_user',
             'hots_trader_detail'
@@ -94,7 +87,7 @@ class DataFetcher:
 
         # 无数据记录文件路径（database目录下）
         import yaml
-        with open('code/backend/config/table_config.yaml', 'r', encoding='utf-8') as f:
+        with open('config/table_config.yaml', 'r', encoding='utf-8') as f:
             table_config = yaml.safe_load(f)
         self.financial_tables = [
             table for table, cfg in table_config['tables'].items()
@@ -286,10 +279,6 @@ class DataFetcher:
                 # 按年：增量拉取
                 record_count = self._fetch_yearly_strategy(table_name)
 
-            elif cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
-                # 特殊游标：遍历指数列表
-                record_count = self._fetch_special_ths_member_strategy(table_name)
-
             else:
                 self.logger.error(f"{table_name}: 未知的游标策略 {cursor_strategy}")
                 self.cursor_manager.mark_failed(table_name, "未知的游标策略")
@@ -370,8 +359,6 @@ class DataFetcher:
             elif table_name == 'index_basic':
                 return collector.run()
             elif table_name == 'etf_basic':
-                return collector.run()
-            elif table_name == 'ths_index_basic':
                 return collector.run()
             elif table_name == 'hots_user':
                 return collector.run()
@@ -649,41 +636,6 @@ class DataFetcher:
             self.logger.error(f"{table_name}: {next_year}年 拉取失败，重试{self.max_retries}次后仍然失败")
             raise Exception(f"{table_name}: {next_year}年 拉取失败，重试{self.max_retries}次后仍然失败")
 
-    def _fetch_special_ths_member_strategy(self, table_name: str) -> int:
-        """
-        特殊游标策略（ths_concept_member，带重试）
-
-        Args:
-            table_name: 表名
-
-        Returns:
-            拉取的记录数
-        """
-        self.logger.info(f"{table_name}: 特殊游标策略，遍历指数列表")
-
-        # 获取Collector
-        collector = self._get_collector(table_name)
-
-        if not collector:
-            self.logger.error(f"{table_name}: 未找到对应的Collector")
-            return 0
-
-        # 使用重试机制拉取
-        def fetch_special():
-            # ths_concept_member需要遍历ths_index_basic的所有指数代码
-            # 调用ths_member接口拉取成分股
-            return collector.run()
-
-        count = self._retry_fetch_none(table_name, fetch_special)
-
-        if count is not None:
-            self.logger.info(f"{table_name}: 拉取成功 ({count}条)")
-            return count
-        else:
-            # 重试失败
-            self.logger.error(f"{table_name}: 拉取失败，重试{self.max_retries}次后仍然失败")
-            raise Exception(f"{table_name}: 拉取失败，重试{self.max_retries}次后仍然失败")
-
     def _get_collector(self, table_name: str):
         """
         根据表名获取对应的Collector实例
@@ -715,12 +667,6 @@ class DataFetcher:
             'dividend': ('dividend_collector', 'DividendCollector'),
             'express': ('express_collector', 'ExpressCollector'),
             'express_brief': ('express_brief_collector', 'ExpressBriefCollector'),
-            'ths_index_basic': ('ths_index_basic_collector', 'THSIndexBasicCollector'),
-            'ths_concept_member': ('ths_concept_member_collector', 'THSConceptMemberCollector'),
-            'ths_moneyflow': ('ths_moneyflow_collector', 'THSMoneyflowCollector'),
-            'ths_concept_moneyflow': ('ths_concept_moneyflow_collector', 'THSConceptMoneyflowCollector'),
-            'ths_industry_moneyflow': ('ths_industry_moneyflow_collector', 'THSIndustryMoneyflowCollector'),
-            'ths_index_daily': ('ths_index_daily_collector', 'THSIndexDailyCollector'),
             'hots_user': ('hots_user_collector', 'HotsUserCollector'),
             'hots_trader_detail': ('hots_trader_detail_collector', 'HotsTraderDetailCollector'),
         }
@@ -895,10 +841,6 @@ class DataFetcher:
             # 无游标，标记为completed
             return 'completed'
 
-        elif cursor_strategy == GlobalCursorManager.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
-            # 特殊游标（ths_concept_member），遍历完成后标记为completed
-            return 'completed'
-
         # DAILY_TRADE和DAILY_NATURAL不应使用此方法
         # 如果被调用，返回空字符串（不会发生）
         return ''
@@ -1047,8 +989,7 @@ class DataFetcher:
                     # 无数据的情况
                     if date_type == 'trade_date':
                         # 行情表无数据：检查是否是允许无数据的特殊表
-                        special_tables = ['ths_moneyflow', 'ths_concept_moneyflow',
-                                         'ths_industry_moneyflow', 'hots_trader_detail']
+                        special_tables = ['hots_trader_detail']
 
                         if table_name in special_tables:
                             # 特殊表允许无数据（早期可能无数据），记录并返回0

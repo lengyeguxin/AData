@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS global_cursor (
     table_name VARCHAR(50) PRIMARY KEY,  -- 表名
 
     -- 游标信息
-    cursor_strategy VARCHAR(20) NOT NULL,  -- 游标策略：none/daily_trade/daily_natural/yearly/special_ths_member
+    cursor_strategy VARCHAR(20) NOT NULL,  -- 游标策略：none/daily_trade/daily_natural/yearly
     cursor_value VARCHAR(20),  -- 游标值：YYYYMMDD或YYYY或ts_code或completed
 
     -- 依赖和时间判断
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS global_cursor (
 CREATE INDEX IF NOT EXISTS idx_cursor_strategy ON global_cursor(cursor_strategy);
 CREATE INDEX IF NOT EXISTS idx_status ON global_cursor(status);
 
--- 初始化数据（27张表）
+-- 初始化数据（21张表）
 INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
 SELECT 'trade_calendar', 'yearly', '', '09:00'
 WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'trade_calendar');
@@ -39,10 +39,6 @@ WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'stock_basic');
 INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
 SELECT 'index_basic', 'none', '', '09:00'
 WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'index_basic');
-
-INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
-SELECT 'ths_index_basic', 'none', '', '09:00'
-WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'ths_index_basic');
 
 INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
 SELECT 'etf_basic', 'none', '', '09:00'
@@ -109,28 +105,6 @@ WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'express_brief'
 INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
 SELECT 'dividend', 'daily_natural', 'stock_basic', '20:00'
 WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'dividend');
-
--- P3资金流向(THS)（3张）
-INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
-SELECT 'ths_moneyflow', 'daily_trade', 'stock_daily', '18:00'
-WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'ths_moneyflow');
-
-INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
-SELECT 'ths_concept_moneyflow', 'daily_trade', '', '18:00'
-WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'ths_concept_moneyflow');
-
-INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
-SELECT 'ths_industry_moneyflow', 'daily_trade', '', '18:00'
-WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'ths_industry_moneyflow');
-
--- P3概念板块（2张）
-INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
-SELECT 'ths_concept_member', 'special_ths_member', 'ths_index_basic', '09:00'
-WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'ths_concept_member');
-
-INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)
-SELECT 'ths_index_daily', 'daily_trade', 'trade_calendar,ths_index_basic', '18:00'
-WHERE NOT EXISTS (SELECT 1 FROM global_cursor WHERE table_name = 'ths_index_daily');
 
 -- P4游资（2张）
 INSERT INTO global_cursor (table_name, cursor_strategy, dependencies, fetch_after_time)

@@ -45,22 +45,6 @@ tables:
     cursor_example: completed
     doc_url: https://tushare.pro/document/2?doc_id=94
     description: 指数基础信息，包括名称、类型、基准日期等
-  ths_index_basic:
-    cursor_strategy: none
-    update_frequency: monthly
-    fetch_type: full
-    dependencies: []
-    fetch_after_time: 09:00
-    primary_key:
-    - ts_code
-    api_name: ths_index
-    api_params:
-      exchange: A
-      type: N/S
-    cursor_field: null
-    cursor_example: completed
-    doc_url: https://tushare.pro/document/2?doc_id=259
-    description: 同花顺概念和行业指数基础信息
   etf_basic:
     cursor_strategy: none
     update_frequency: monthly
@@ -371,94 +355,6 @@ tables:
     allow_no_data: true
     doc_url: https://tushare.pro/document/2?doc_id=103
     description: 上市公司分红送股数据
-  ths_moneyflow:
-    cursor_strategy: daily_trade
-    update_frequency: daily
-    fetch_type: incremental
-    dependencies:
-    - stock_daily
-    fetch_after_time: '18:00'
-    primary_key:
-    - ts_code
-    - trade_date
-    api_name: moneyflow_ths
-    api_params:
-      trade_date: '{游标+1}'
-    cursor_field: trade_date
-    cursor_example: '20260409'
-    time_check: true
-    doc_url: https://tushare.pro/document/2?doc_id=348
-    description: 同花顺个股资金流向数据
-  ths_concept_moneyflow:
-    cursor_strategy: daily_trade
-    update_frequency: daily
-    fetch_type: incremental
-    dependencies: []
-    fetch_after_time: '18:00'
-    primary_key:
-    - ts_code
-    - trade_date
-    api_name: moneyflow_cnt_ths
-    api_params:
-      trade_date: '{游标+1}'
-    cursor_field: trade_date
-    cursor_example: '20260409'
-    time_check: true
-    doc_url: https://tushare.pro/document/2?doc_id=371
-    description: 同花顺概念板块资金流向数据
-  ths_industry_moneyflow:
-    cursor_strategy: daily_trade
-    update_frequency: daily
-    fetch_type: incremental
-    dependencies: []
-    fetch_after_time: '18:00'
-    primary_key:
-    - ts_code
-    - trade_date
-    api_name: moneyflow_ind_ths
-    api_params:
-      trade_date: '{游标+1}'
-    cursor_field: trade_date
-    cursor_example: '20260409'
-    time_check: true
-    doc_url: https://tushare.pro/document/2?doc_id=343
-    description: 同花顺行业资金流向数据
-  ths_concept_member:
-    cursor_strategy: special_ths_member
-    update_frequency: monthly
-    fetch_type: full
-    dependencies:
-    - ths_index_basic
-    fetch_after_time: 09:00
-    primary_key:
-    - ts_code
-    - con_code
-    api_name: ths_member
-    api_params:
-      ts_code: '{同花顺指数代码}'
-    cursor_field: ts_code
-    cursor_example: 885472.TI
-    doc_url: https://tushare.pro/document/2?doc_id=261
-    description: 同花顺概念板块成分股
-  ths_index_daily:
-    cursor_strategy: daily_trade
-    update_frequency: daily
-    fetch_type: incremental
-    dependencies:
-    - trade_calendar
-    - ths_index_basic
-    fetch_after_time: '18:00'
-    primary_key:
-    - ts_code
-    - trade_date
-    api_name: ths_daily
-    api_params:
-      trade_date: '{游标+1}'
-    cursor_field: trade_date
-    cursor_example: '20260409'
-    time_check: true
-    doc_url: https://tushare.pro/document/2?doc_id=260
-    description: 同花顺概念和行业指数日线行情
   hots_user:
     cursor_strategy: none
     update_frequency: monthly

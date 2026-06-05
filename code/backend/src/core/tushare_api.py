@@ -269,9 +269,6 @@ class TushareAPI:
             'etf_index': '386',
             'fund_daily': '127',
             'fund_adj': '199',
-            'ths_index': '259',
-            'ths_member': '261',
-            'ths_daily': '260',
             'fina_indicator_vip': '79',
             'income_vip': '33',
             'balancesheet_vip': '36',
@@ -279,9 +276,6 @@ class TushareAPI:
             'forecast_vip': '45',
             'express_vip': '46',
             'dividend': '103',
-            'moneyflow_ths': '348',
-            'moneyflow_cnt_ths': '371',
-            'moneyflow_ind_ths': '343',
             'hots_user': '272',
             'hots_trader_detail': '273'
         }

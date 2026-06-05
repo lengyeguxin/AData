@@ -1,8 +1,8 @@
 """
 全局游标管理器
 
-负责管理27张数据表的游标状态，包括：
-- 游标策略判断（5种策略：none/daily_trade/daily_natural/yearly/special_ths_member）
+负责管理21张数据表的游标状态，包括：
+- 游标策略判断（4种策略：none/daily_trade/daily_natural/yearly）
 - 数据拉取进度判断（should_fetch）
 - 18点时间判断逻辑
 - 游标更新时机判断（财务表允许无数据更新）
@@ -27,7 +27,6 @@ class GlobalCursorManager:
     CURSOR_STRATEGY_DAILY_TRADE = 'daily_trade'    # 按天记录（交易日）
     CURSOR_STRATEGY_DAILY_NATURAL = 'daily_natural' # 按天记录（自然日）
     CURSOR_STRATEGY_YEARLY = 'yearly'              # 按年记录
-    CURSOR_STRATEGY_SPECIAL_THS_MEMBER = 'special_ths_member' # 特殊游标
 
     # 状态常量
     STATUS_PENDING = 'pending'
@@ -307,10 +306,6 @@ class GlobalCursorManager:
         elif cursor_strategy == self.CURSOR_STRATEGY_NONE:
             # 无游标，返回当前日期
             return datetime.now().strftime('%Y%m%d')
-
-        elif cursor_strategy == self.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
-            # 特殊游标（ths_concept_member），返回当前指数代码
-            return cursor_value
 
         return cursor_value
 
@@ -688,27 +683,7 @@ class GlobalCursorManager:
                     return False
             return False  # 没有last_fetch_time，需要拉取
 
-        elif cursor_strategy == self.CURSOR_STRATEGY_SPECIAL_THS_MEMBER:
-            # 特殊游标（ths_concept_member）：月更新策略
-            # 检查last_fetch_time是否在本月
-            last_fetch_time = cursor.get('last_fetch_time')
-            if last_fetch_time:
-                try:
-                    # 解析last_fetch_time
-                    if isinstance(last_fetch_time, str):
-                        last_date = datetime.strptime(last_fetch_time.split('.')[0], '%Y-%m-%d %H:%M:%S')
-                    else:
-                        last_date = last_fetch_time
-
-                    # 比较月份：同月则不更新，不同月则更新
-                    current_month = now.strftime('%Y%m')
-                    last_month = last_date.strftime('%Y%m')
-                    return current_month == last_month
-                except:
-                    return False
-            return False  # 没有last_fetch_time，需要拉取
-
-        return False
+        return False  # 未知策略，默认需要拉取
 
     def _get_start_date_from_config(self, table_name: str) -> str:
         """

@@ -562,7 +562,7 @@ COMMENT ON COLUMN fina_indicator.rd_exp IS '研发费用';
 COMMENT ON COLUMN fina_indicator.update_flag IS '更新标识';
 COMMENT ON COLUMN fina_indicator.updated_at IS '更新时间';
 COMMENT ON COLUMN global_cursor.table_name IS '表名';
-COMMENT ON COLUMN global_cursor.cursor_strategy IS '游标策略：none/daily_trade/daily_natural/yearly/special_ths_member';
+COMMENT ON COLUMN global_cursor.cursor_strategy IS '游标策略：none/daily_trade/daily_natural/yearly';
 COMMENT ON COLUMN global_cursor.cursor_value IS '游标值：YYYYMMDD或YYYY或ts_code或completed';
 COMMENT ON COLUMN global_cursor.dependencies IS '前置表依赖，逗号分隔';
 COMMENT ON COLUMN global_cursor.fetch_after_time IS '截至7时间判断，HH:MM格式（如18:00）';
@@ -829,94 +829,6 @@ COMMENT ON COLUMN stock_weekly.amount IS '(周/月)成交额';
 COMMENT ON COLUMN stock_weekly.change IS '(周/月)涨跌额';
 COMMENT ON COLUMN stock_weekly.pct_chg IS '(周/月)涨跌幅 【基于除权后的昨收计算的涨跌幅：（今收-除权昨收）/除权昨收 】';
 COMMENT ON COLUMN stock_weekly.updated_at IS '更新时间';
-
--- ths_concept_member表
-COMMENT ON TABLE ths_concept_member IS '同花顺概念板块成分';
-COMMENT ON COLUMN ths_concept_member.ts_code IS '指数代码';
-COMMENT ON COLUMN ths_concept_member.con_code IS '股票代码';
-COMMENT ON COLUMN ths_concept_member.con_name IS '股票名称';
-COMMENT ON COLUMN ths_concept_member.weight IS '权重(暂无)';
-COMMENT ON COLUMN ths_concept_member.in_date IS '纳入日期(暂无)';
-COMMENT ON COLUMN ths_concept_member.out_date IS '剔除日期(暂无)';
-COMMENT ON COLUMN ths_concept_member.is_new IS '是否最新Y是N否';
-COMMENT ON COLUMN ths_concept_member.updated_at IS '更新时间';
-
--- ths_concept_moneyflow表
-COMMENT ON TABLE ths_concept_moneyflow IS '同花顺概念板块资金流向';
-COMMENT ON COLUMN ths_concept_moneyflow.trade_date IS '交易日期';
-COMMENT ON COLUMN ths_concept_moneyflow.ts_code IS '板块代码';
-COMMENT ON COLUMN ths_concept_moneyflow.name IS '板块名称';
-COMMENT ON COLUMN ths_concept_moneyflow.lead_stock IS '领涨股票名称';
-COMMENT ON COLUMN ths_concept_moneyflow.close_price IS '最新价';
-COMMENT ON COLUMN ths_concept_moneyflow.pct_change IS '行业涨跌幅';
-COMMENT ON COLUMN ths_concept_moneyflow.industry_index IS '板块指数';
-COMMENT ON COLUMN ths_concept_moneyflow.company_num IS '公司数量';
-COMMENT ON COLUMN ths_concept_moneyflow.pct_change_stock IS '领涨股涨跌幅';
-COMMENT ON COLUMN ths_concept_moneyflow.net_buy_amount IS '流入资金(亿元)';
-COMMENT ON COLUMN ths_concept_moneyflow.net_sell_amount IS '流出资金(亿元)';
-COMMENT ON COLUMN ths_concept_moneyflow.net_amount IS '净额(亿元)';
-COMMENT ON COLUMN ths_concept_moneyflow.updated_at IS '更新时间';
-
--- ths_index_basic表
-COMMENT ON TABLE ths_index_basic IS '同花顺指数基本信息';
-COMMENT ON COLUMN ths_index_basic.ts_code IS '代码';
-COMMENT ON COLUMN ths_index_basic.name IS '名称';
-COMMENT ON COLUMN ths_index_basic.count IS '成分个数';
-COMMENT ON COLUMN ths_index_basic.exchange IS '交易所';
-COMMENT ON COLUMN ths_index_basic.list_date IS '上市日期';
-COMMENT ON COLUMN ths_index_basic.type IS 'N概念指数S特色指数';
-COMMENT ON COLUMN ths_index_basic.updated_at IS '更新时间';
-
--- ths_index_daily表
-COMMENT ON TABLE ths_index_daily IS '同花顺指数日线行情';
-COMMENT ON COLUMN ths_index_daily.ts_code IS 'TS指数代码';
-COMMENT ON COLUMN ths_index_daily.trade_date IS '交易日';
-COMMENT ON COLUMN ths_index_daily.close IS '收盘点位';
-COMMENT ON COLUMN ths_index_daily.open IS '开盘点位';
-COMMENT ON COLUMN ths_index_daily.high IS '最高点位';
-COMMENT ON COLUMN ths_index_daily.low IS '最低点位';
-COMMENT ON COLUMN ths_index_daily.pre_close IS '昨日收盘点';
-COMMENT ON COLUMN ths_index_daily.avg_price IS '平均价';
-COMMENT ON COLUMN ths_index_daily.change IS '涨跌点位';
-COMMENT ON COLUMN ths_index_daily.pct_change IS '涨跌幅';
-COMMENT ON COLUMN ths_index_daily.vol IS '成交量（手）';
-COMMENT ON COLUMN ths_index_daily.turnover_rate IS '换手率（%）';
-COMMENT ON COLUMN ths_index_daily.total_mv IS '总市值（元）';
-COMMENT ON COLUMN ths_index_daily.float_mv IS '流通市值（元）';
-COMMENT ON COLUMN ths_index_daily.updated_at IS '更新时间';
-
--- ths_industry_moneyflow表
-COMMENT ON TABLE ths_industry_moneyflow IS '同花顺行业资金流向';
-COMMENT ON COLUMN ths_industry_moneyflow.trade_date IS '交易日期';
-COMMENT ON COLUMN ths_industry_moneyflow.ts_code IS '板块代码';
-COMMENT ON COLUMN ths_industry_moneyflow.industry IS '板块名称';
-COMMENT ON COLUMN ths_industry_moneyflow.lead_stock IS '领涨股票名称';
-COMMENT ON COLUMN ths_industry_moneyflow.close IS '收盘指数';
-COMMENT ON COLUMN ths_industry_moneyflow.pct_change IS '指数涨跌幅';
-COMMENT ON COLUMN ths_industry_moneyflow.company_num IS '公司数量';
-COMMENT ON COLUMN ths_industry_moneyflow.pct_change_stock IS '领涨股涨跌幅';
-COMMENT ON COLUMN ths_industry_moneyflow.close_price IS '领涨股最新价';
-COMMENT ON COLUMN ths_industry_moneyflow.net_buy_amount IS '流入资金(亿元)';
-COMMENT ON COLUMN ths_industry_moneyflow.net_sell_amount IS '流出资金(亿元)';
-COMMENT ON COLUMN ths_industry_moneyflow.net_amount IS '净额(亿元)';
-COMMENT ON COLUMN ths_industry_moneyflow.updated_at IS '更新时间';
-
--- ths_moneyflow表
-COMMENT ON TABLE ths_moneyflow IS '个股资金流向';
-COMMENT ON COLUMN ths_moneyflow.trade_date IS '交易日期';
-COMMENT ON COLUMN ths_moneyflow.ts_code IS '股票代码';
-COMMENT ON COLUMN ths_moneyflow.name IS '股票名称';
-COMMENT ON COLUMN ths_moneyflow.pct_change IS '涨跌幅';
-COMMENT ON COLUMN ths_moneyflow.latest IS '最新价';
-COMMENT ON COLUMN ths_moneyflow.net_amount IS '资金净流入(万元)';
-COMMENT ON COLUMN ths_moneyflow.net_d5_amount IS '5日主力净额(万元)';
-COMMENT ON COLUMN ths_moneyflow.buy_lg_amount IS '今日大单净流入额(万元)';
-COMMENT ON COLUMN ths_moneyflow.buy_lg_amount_rate IS '今日大单净流入占比(%)';
-COMMENT ON COLUMN ths_moneyflow.buy_md_amount IS '今日中单净流入额(万元)';
-COMMENT ON COLUMN ths_moneyflow.buy_md_amount_rate IS '今日中单净流入占比(%)';
-COMMENT ON COLUMN ths_moneyflow.buy_sm_amount IS '今日小单净流入额(万元)';
-COMMENT ON COLUMN ths_moneyflow.buy_sm_amount_rate IS '今日小单净流入占比(%)';
-COMMENT ON COLUMN ths_moneyflow.updated_at IS '更新时间';
 
 -- trade_calendar表
 COMMENT ON TABLE trade_calendar IS '交易日历';
